@@ -46,7 +46,6 @@ int main(int argc, char **argv)
 	}
 
 	success = bind(sockfd, server->ai_addr, server->ai_addrlen);
-	printf("%p %d\n", server, server->ai_addrlen);
 	if (success != 0) {
 		printf("Error binding to port!\n");
 		return 0;
@@ -55,7 +54,6 @@ int main(int argc, char **argv)
 	close(sockfd);
 	freeaddrinfo(server);
 	
-	printf("Done.\n");
 	return 0;
 }
 
