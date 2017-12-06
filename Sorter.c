@@ -24,38 +24,33 @@ int main(int argc, char **argv)
 
 	//int port = atoi(argv[2]);
 	int success;
+	char buffer[256];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	struct addrinfo *server;
+	struct sockaddr_in serv_addr, cli_addr;
+
+	serv_addr.sin_port = htons(atoi(argv[2]));
+	serv_addr.sin_family = AF_INET;
+
+	bind(sockfd, &serv_addr, sizeof(serv_addr));
+	listen(sockfd, 5);
+	int clilen = sizeof(cli_addr);
+
+	printf("LISTENING\n");
+
+	int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
 
 	if (sockfd < 0) {
 		printf("Error opening socket!\n");
 		return 0;
 	}
 
-	//printf("%d\n", sockfd);
+	printf("LISTENED\n");
 
-	struct addrinfo hints;
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
+	bzero(buffer,256);
+    n = read(incomingsockfd,buffer,255);
+    if (n < 0) error("ERROR reading from socket");
+    printf("Here is the message: %s\n",buffer);
 
-	bzero((char *) &hints, sizeof(struct addrinfo));
-	success = getaddrinfo("localhost", argv[2], &hints, &server);
-	if (success != 0) {
-		printf("Error getting address info of server!\n");
-		return 0;
-	}
-
-	success = bind(sockfd, server->ai_addr, server->ai_addrlen);
-	printf("%p %d\n", server, server->ai_addrlen);
-	if (success != 0) {
-		printf("Error binding to port!\n");
-		return 0;
-	}
-
-	close(sockfd);
-	freeaddrinfo(server);
-	
-	printf("Done.\n");
 	return 0;
 }
 
