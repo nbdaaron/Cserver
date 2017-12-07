@@ -31,7 +31,8 @@ int main(int argc, char **argv)
 
 	printf("LISTENING\n");
 
-	int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
+	int incomingsockfd;
+	//accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
 
 	if (sockfd < 0) {
 		printf("Error opening socket!\n");
@@ -40,10 +41,12 @@ int main(int argc, char **argv)
 
 	printf("LISTENED\n");
 
-	while(1) {
+	while((incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen))>=0) {
 		bzero(buffer,2560);
 	    	success = read(incomingsockfd,buffer,2559);
-	    	if (success < 0) {
+	    	write(incomingsockfd, buffer, strlen(buffer));
+		//sleep(1);
+		if (success < 0) {
 			printf("ERROR READING\n");
 			return 0;
 		}
