@@ -3,3 +3,5 @@ sorter
 *.dSYM
 server
 client
+sorter_server
+sorter_client
