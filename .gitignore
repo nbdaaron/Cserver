@@ -1,3 +1,5 @@
 sorter
 *.csv
 *.dSYM
+server
+client
