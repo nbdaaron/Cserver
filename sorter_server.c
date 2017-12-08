@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	listen(sockfd, 5);
 	int clilen = sizeof(cli_addr);
 
-	printf("LISTENING\n");
+	printf("Listening for incoming connection\n");
 
 	int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
 
@@ -44,17 +44,20 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	printf("LISTENED\n");
+	struct request req = readRequest(incomingsockfd);
 
+
+	/*
 	while(1) {
-	bzero(buffer,2560);
+		bzero(buffer,2560);
     	success = read(incomingsockfd,buffer,2559);
     	if (success < 0) {
 			printf("ERROR READING\n");
 			return 0;
 		}
-	printf("Here is the message: %s\n",buffer);
+		printf("Here is the message: %s\n",buffer);
 	}
+	*/
 	return 0;
 }
 
@@ -931,17 +934,97 @@ int isCSV(char *fname)
 
 
 
-
+//CSV Must be freed by caller.
 struct csv *readCSV(int sockfd) {
-	FILE *file = fdopen(sockfd, "r");
-	return parseCSV(file);
+
+	struct csv *ret = malloc(sizeof(struct csv));
+	ret->columnNames = malloc(sizeof(char *) * columns);
+	ret->columnTypes = malloc(sizeof(enum type) * columns);
+
+	int success, i, j;
+
+	//Read in column names.
+	for (i=0;i<columns;i++) {
+		ret->columnNames[i] = malloc(sizeof(char) * 51);
+		bzero(ret->columnNames[i], 51);
+		success = read(sockfd, &(ret->columnNames[i]), 50);
+		if (success < 0) {
+			printf("Error Reading Column Name!\n");
+			exit(0);
+		}
+	}
+
+	//Read in column types.
+	for (i=0;i<columns;i++) {
+		char columnType[2];
+		bzero(columnType, 2);
+		success = read(sockfd, columnType, 1);
+		if (success < 0) {
+			printf("Error Reading Column Type!\n");
+			exit(0);
+		}
+		if (columnType[0] == 'S') {
+			ret->columnTypes[i] = string;
+		} else if (columnType[0] == 'I'){
+			ret->columnTypes[i] = integer;
+		} else if (columnType[0] == 'D') {
+			ret->columnTypes[i] = decimal;
+		} else {
+			printf("Invalid Column Type Found: %c\n", columnType[0]);
+			exit(0);
+		}
+	}
+
+	//Read in number of entries.
+	success = read(sockfd, &(ret->numEntries), 4);
+	if (success < 0) {
+		printf("Error Reading Number of Entries!\n");
+		exit(0);
+	}
+	
+	//Create that many entry pointers.
+	ret->entries = malloc(sizeof(struct entry *) * ret->numEntries);
+
+
+	//Read in all csv values.
+	for (i=0;i<ret->numEntries;i++) {
+		ret->entries[i] = malloc(sizeof(struct entry));
+		ret->entries[i]->values = malloc(sizeof(union value) * columns);
+		for (j=0;j<columns;j++) {
+			if (ret->columnTypes[j] == integer) {
+				success = read(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
+			} else if (ret->columnTypes[j] == decimal) {
+				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
+			} else if (ret->columnTypes[j] == string) {
+				unsigned int stringLength;
+				success = read(sockfd, &stringLength, sizeof(int));
+				char *stringValue = malloc(sizeof(char) * stringLength);
+				success = read(sockfd, stringValue, stringLength);
+				ret->entries[i]->values[j].stringVal = stringValue;
+			} else {
+				printf("Unknown data type found in column %d!\n", j);
+				exit(0);
+			}
+
+			if (success < 0) {
+				printf("Error Reading in a value.\n");
+				exit(0);
+			}
+
+		}
+	}
+
+	return ret;
+
+
+
 }
 
 
 //Caller must free the malloced request.
-struct request *readRequest(int sockfd) {
+struct request readRequest(int sockfd) {
 
-	struct request *ret = malloc(sizeof(struct request));
+	struct request ret;
 	int success; //Success flag.
 
 	//Get Request Type. Always one character.
@@ -950,14 +1033,14 @@ struct request *readRequest(int sockfd) {
 	success = read(sockfd,type,1);
 	if (success < 0) {
 		printf("Error Reading Request Type!\n");
-		return 0;
+		exit(0);
 	} else if (type[0] == 'D') { //Request Dump.
-		ret->type = getDump;
+		ret.type = getDump;
 	} else if (type[0] == 'S') { //Request Sort.
-		ret->type = sort;
+		ret.type = sort;
 	} else {
 		printf("Error: Invalid request type.\n");
-		return 0;
+		exit(0);
 	}
 
 
@@ -967,13 +1050,13 @@ struct request *readRequest(int sockfd) {
 	success = read(sockfd, columnName, 50);
 	if (success < 0) {
 		printf("Error Reading Column Name!\n");
-		return 0;
+		exit(0);
 	} 
-	ret->sortBy = columnName;
-	ret->csv = NULL;
+	ret.sortBy = columnName;
+	ret.csv = NULL;
 
-	if (ret -> type == sort) {
-		ret -> csv = readCSV(sockfd);
+	if (ret.type == sort) {
+		ret.csv = readCSV(sockfd);
 	}
 
 	return ret;

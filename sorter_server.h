@@ -138,5 +138,5 @@ struct entry *copyEntry(struct entry *src);
 
 
 //Network Methods
-struct csv *deserializeCSV(char *buffer);
-char *serializeCSV(struct csv *csv);
+struct request readRequest(int sockfd);
+void sendDump(int sockfd, struct csv *mergedCSV);
