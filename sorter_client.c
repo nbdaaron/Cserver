@@ -67,6 +67,8 @@ int main(int argc, char **argv)
 			return 0;
 		}
 	}
+	printf("column=%s, hostname=%s, portNumber=%s, directoryName=%s, outputDirectoryName=%s\n", column, hostname, portNumber, directoryName, outputDirectoryName);
+	
 	sem_init(&openedFiles, 0, maxOpenedFileLimit);
 	
 	
@@ -121,13 +123,12 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 			sortFileParameters->sortBy = sortBy;
 			
 			pthread_create(&tid, NULL, threadSendFile, (void *)sortFileParameters);
+			
 			if (numChildThreads<maxPossibleThreads)
 			{
 				listOfThreadIDs[numChildThreads] = tid;
 				numChildThreads++;
-			}
-			else 
-			{
+			} else {
 				maxPossibleThreads = maxPossibleThreads*2;
 				unsigned long *tempPtr= (unsigned long *)realloc(listOfThreadIDs, maxPossibleThreads * sizeof(unsigned long));
 				listOfThreadIDs = tempPtr;
@@ -155,7 +156,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 	int i;
 	int status = 0;
 	
-	printf("%lu ", pthread_self());
+	printf("I'm a thread=%lu\n ", pthread_self());
 	for (i=0;i<numChildThreads;i++) 
 	{
 		printf("Join here %d\n", i);
@@ -170,6 +171,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 void *threadSendFile(void *args)
 {
 	sem_wait(&openedFiles);
+	
 	struct sendFileArguments *arguments = (struct sendFileArguments *) args;
 	
 	int sockfd = createSocket(arguments->host, arguments->portNumber);
@@ -201,6 +203,7 @@ void *threadSendFile(void *args)
 	free(arguments);
 	int retval = 1;
 	pthread_exit((void *) (intptr_t) retval);
+	
 	sem_post(&openedFiles);
 	return NULL;
 }
