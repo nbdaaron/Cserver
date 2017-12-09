@@ -15,11 +15,13 @@
 
 int main(int argc, char **argv) 
 {
-
+	
+	// usage ./sorter_client 
+	
 	int success;
 
-	if (argc < 3) {
-		printf("NEED HOSTNAME AND PORT\n");
+	if (argc != 3) {
+		printf("usage: ./sorter_client 171.0.8.17(IP address) 3030(port number)\n");
 		exit(0);
 	}
 
@@ -30,7 +32,7 @@ int main(int argc, char **argv)
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
-	//Set up local socket
+	//Set up local socket // socket creation
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (sockfd < 0) {
@@ -39,6 +41,8 @@ int main(int argc, char **argv)
 	}
 
 	//Set up server address info.
+	// convert domain name, hostname, and IP addresses into addresses
+	// argv[1] = hostname = "www.example.com", an ip ; argv[2] = service = port number, "echo"
 	success = getaddrinfo(argv[1], argv[2], &hints, &addresses);
 
 	if (success < 0) {
@@ -47,6 +51,7 @@ int main(int argc, char **argv)
 	}
 
 	//Attempt to connect local socket to server.
+	// socket file descriptor, sockaddr ai_addr (info), size of sockaddr 
 	success = connect(sockfd, (struct sockaddr *)addresses[0].ai_addr, sizeof(struct sockaddr));
 
 	if (success < 0) {
