@@ -70,10 +70,10 @@ int main(int argc, char **argv)
 	sem_init(&openedFiles, 0, maxOpenedFileLimit);
 	
 	
-	parseAndSendDir(directoryName, column);
+	parseAndSendDir(hostname, portNumber, directoryName, column);
 	
 	int sockfd = createSocket(hostname, portNumber);
-	sendRequest(int sockfd, getDump, column, NULL);
+	sendRequest(sockfd, getDump, column, NULL);
 	struct csv *readDump(int sockfd);
 	
 	// call dump here and output file to the specified output directory
@@ -146,7 +146,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 			strcat(subDir, "/");
 			strcat(subDir, pDirent->d_name);
 			
-			parseAndSendDir(char *host, char *portNumber, char *subDir, char *sortBy);
+			parseAndSendDir(host, portNumber, subDir, sortBy);
 			free(subDir);
 			
 		}
@@ -186,7 +186,7 @@ void *threadSendFile(void *args)
 	} 
 	else 
 	{
-		in = fopen(fileName, "r");
+		in = fopen(arguments->fileName, "r");
 	}
 	struct csv *csv = parseCSV(in);
 	
