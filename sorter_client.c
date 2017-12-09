@@ -15,7 +15,6 @@
 
 int main(int argc, char **argv) 
 {
-	printf("TODO: Include all semaphore lines from last project, BUT FOR NUMBER OF CSVS READIN AND PROCESSED, NOT SORTED\n");	
 	if (argc<7) {
 		printf("Missing arguments\n");
 		printf("Usage: ./sorter_client -c <column> -h <hostname or ip address> -p <port number> [-d <dirname>] [-o <output dirname>]\n");
@@ -71,7 +70,6 @@ int main(int argc, char **argv)
 	
 	sem_init(&openedFiles, 0, maxOpenedFileLimit);
 	
-	
 	parseAndSendDir(hostname, portNumber, directoryName, column);
 	
 	int sockfd = createSocket(hostname, portNumber);
@@ -106,12 +104,9 @@ int main(int argc, char **argv)
 		strcat(outputLocation, ".csv");
 	}
 	
-	// write to specified location	
 	FILE *out = fopen(outputLocation, "w");
 	printCSV(csv, out);
 	freeCSV(csv);
-	// call dump here and output file to the specified output directory
-	// already declared before in this context as dir
 	return 0;
 }
 
@@ -126,7 +121,6 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 		inputDir = ".";
 	}
 	dir = opendir(inputDir);
-	
 	if (dir == NULL) 
 	{
 		printf("ERROR: Cannot open input directory: %s.\n", inputDir);
@@ -288,15 +282,8 @@ int createSocket(char *hostname, char *portNumber) {
 		exit(0);
 	}
 	
-	/* use sendRequest to send a sort/dump request and you can use readDump to get the merged CSV file after your dump request.*/
 	return sockfd;
-} // close(sockfd);
-
-
-
-
-
-
+}
 
 ///Parses CSV and returns a pointer to CSV.
 struct csv *parseCSV(FILE *file) 
@@ -491,7 +478,6 @@ struct entryInfo getCSVEntries(FILE *file, enum type *columnTypes)
 enum type getTypeFromColumnName(char *name) 
 {
 	int i;
-
 	for (i=0;i<stringValuesSize;i++) 
 	{
 		if (strcmp(stringValues[i], name) == 0) 
@@ -517,327 +503,6 @@ enum type getTypeFromColumnName(char *name)
 	}
 	return error;
 }
-
-
-
-// struct csv *mergeCSVs(struct csv **csvs, unsigned int size, char *sortBy) 
-// {	
-// 	int i;
-// 	//Array of pointers to row in every csv file.
-// 	int *positions = calloc(1, sizeof(int) * size);
-// 	int lowestPosition;
-
-// 	if (size == 0) {
-// 		printf("No CSV files found in directory.\n");
-// 		return 0;
-// 	}
-
-// 	//find the indexes of the desired field to sort by; color = 0, director_name = 1 ...
-// 	int numberOfSortBys = 1;
-// 	char *query = sortBy;
-// 	for (i=0; query[i]!='\0'; i++) 
-// 	{
-// 		if (query[i] == ',') 
-// 		{
-// 			numberOfSortBys += 1;
-// 		}
-// 	}
-	
-// 	//all the sortBy values separated
-// 	char **arrayOfSortBys = (char **)malloc(numberOfSortBys * sizeof(char *));
-// 	int counter = 0;
-
-	
-// 	//parse out the different sortBy values
-// 	char *temp = query;
-// 	for (i=0; query[i]!='\0'; i++) 
-// 	{
-// 		if (query[i] == ',') 
-// 		{
-// 			char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
-// 			memcpy(sortVal, temp, (&(query[i])-temp));
-// 			sortVal[&(query[i])-temp] = '\0';
-// 			arrayOfSortBys[counter] = sortVal;
-// 			counter++;
-// 			temp=&(query[i])+1;
-// 		}
-// 	}
-	
-// 	//for the last value after the last comma
-// 	char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
-// 	memcpy(sortVal, temp, (&(query[i])-temp));
-// 	sortVal[&(query[i])-temp] = '\0';
-// 	arrayOfSortBys[counter] = sortVal;
-// 	//printf("sortVal: %s\n", sortVal);
-// 	int *indexesOfSortBys = (int *) malloc(numberOfSortBys * sizeof(int));
-// 	int j;
-// 	for (i=0; i<numberOfSortBys; i++) 
-// 	{
-// 		for (j=0; j < columns; j++) 
-// 		{
-// 			//printf("strcmp %s with %s\n", columnNames[i], arrayOfSortBys[counter]);
-// 			if (strcmp(csvs[0]->columnNames[j], arrayOfSortBys[i])==0) 
-// 			{
-// 				indexesOfSortBys[i] = j;
-// 				break;
-// 			}
-// 		}
-// 		//check if header is found
-// 		if (j == columns) 
-// 		{
-// 			printf("Error, could not find query in column names\n");
-// 			exit(0);
-// 		}
-// 	}
-	
-// 	//free the parsed character array of query
-// 	for (i=0; i<numberOfSortBys; i++) 
-// 	{
-// 		free(arrayOfSortBys[i]);
-// 	}
-// 	free(arrayOfSortBys);
-	
-
-
-// 	struct csv *mergedCSV = malloc(sizeof(struct csv));
-// 	mergedCSV->columnNames = malloc(sizeof(char *) * columns);
-// 	mergedCSV->columnTypes = malloc(sizeof(enum type) * columns);
-// 	mergedCSV->entries = malloc(sizeof(struct entry *) * maxEntries * size);
-// 	mergedCSV->numEntries = 0;
-// 	//Use column names and column types from first csv file.
-// 	for (i=0;i<columns;i++) {
-// 		mergedCSV->columnNames[i] = malloc(sizeof(char) * maxStringSize);
-// 		strcpy(mergedCSV->columnNames[i], csvs[0]->columnNames[i]);
-// 		mergedCSV->columnTypes[i] = csvs[0]->columnTypes[i];
-// 	}
-
-// 	while(!endPositionsReached(csvs, positions, size)) {
-// 		lowestPosition = -1;
-// 		for (i = 0 ; i < size ; i++) {
-// 			if (!endPositionReached(csvs[i], positions[i]) && (lowestPosition == -1 ||compareValue(csvs[lowestPosition]->entries[positions[lowestPosition]], csvs[i]->entries[positions[i]], csvs[i]->columnTypes, indexesOfSortBys, numberOfSortBys) == 1)) {
-// 				lowestPosition = i;
-// 			}
-// 		}
-// 		mergedCSV->entries[mergedCSV->numEntries++] = copyEntry(csvs[lowestPosition]->entries[positions[lowestPosition]]);
-// 		positions[lowestPosition]++;
-
-// 	}
-
-// 	free(indexesOfSortBys);
-
-// 	return mergedCSV;
-
-// }
-
-// int endPositionsReached(struct csv **csvs, int *positions, unsigned int size) {
-// 	int i;
-
-// 	for (i=0;i<size; i++) {
-// 		if (!endPositionReached(csvs[i], positions[i])) {
-// 			return 0;
-// 		}
-// 	}
-
-// 	return 1;
-// }
-
-// int endPositionReached(struct csv *csv, int position) {
-// 	return csv->numEntries == position;
-// }
-
-// struct entry *copyEntry(struct entry *src) {
-// 	struct entry *ret = malloc(sizeof(struct entry));
-// 	ret->values = malloc(sizeof(union value) * columns);
-// 	int i;
-
-// 	for (i = 0 ; i < columns ; i++) {
-// 		ret->values[i] = src->values[i];
-// 	}
-
-// 	return ret;
-// }
-
-// void mergesortMovieList(struct csv *csv, int *indexesOfSortBys, enum type *columnTypes, int numberOfSortBys) 
-// {
-	
-// 	struct entry** entries = csv->entries;
-// 	long low = 0;
-// 	//numEntries includes the labels row (-1), to use Array indicies (-1)
-// 	long high = csv->numEntries-1;
-	
-// 	//start mergeSort
-// 	mergeSort(low, high, entries, columnTypes, indexesOfSortBys, numberOfSortBys);
-	
-// }
-
-// void mergeSort(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys)
-// {
-// 	//split up array until single blocks are made
-// 	if (low < high){
-// 		//lower array has the "mid" element
-// 		mergeSort(low, ((low+high)/2), entries, columnTypes, compareIndexes, numberOfSortBys);
-// 		mergeSort(((low+high)/2)+1, high, entries, columnTypes, compareIndexes, numberOfSortBys);
-// 		mergeParts(low, high, entries, columnTypes, compareIndexes, numberOfSortBys);
-// 	}
-// 	return;
-// }
-
-// void mergeParts(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys)
-// {
-// 	// (low+high)/2 is part of the lower array
-// 	long  mid = (low+high)/2;
-	
-// 	//dynamically create an array of pointers
-// 	struct entry **tempArray1;
-// 	struct entry **tempArray2;
-	
-// 	//copy the pointers from entries into tempArray1 and tempArray2
-// 	tempArray1 = malloc(sizeof(struct entry *)*(mid-low+1)); 
-// 	tempArray2 = malloc(sizeof(struct entry *)*(high-mid));
-// 	int i;
-// 	for (i=0; i<mid-low+1; i++)
-// 	{
-// 		tempArray1[i] = entries[low+i];
-// 	}
-// 	for (i=0; i<high-mid; i++)
-// 	{
-// 		tempArray2[i] = entries[mid+1+i];
-// 	}
-	
-// 	//check if memory was not properly allocated by malloc
-// 	if (tempArray1==NULL || tempArray2==NULL)
-// 	{
-// 		printf("Error in allocation of memory\n");
-// 		exit(0);
-// 	}
-	
-// 	// insertLocation is the location in entries that will be overwritten
-// 	long insertLocation = low;
-// 	//for the first temporary array
-// 	long index1 = low; 
-// 	//for the second temporary array
-// 	long index2 = mid+1; 
-// 	while (index1 <= mid && index2 <= high) 
-// 	{ //the lower array gets the middle element
-// 		//compare succeeding elements in tempArray1 vs succeeding elements in tempArray2
-// 		//dereference tempArray(1,2) at an index, dereference and grab values, dereference and grab string, decimal, or float value
-// 		//compareValue returns -1 when element in tempArray1 is smaller and 1 whenelement in tempArray2 is bigger
-// 		if (compareValue((tempArray1[index1-low]), (tempArray2[index2-(mid+1)]), columnTypes, compareIndexes, numberOfSortBys) == -1) 
-// 		{
-// 			//if tempArray1 has the smaller value or they're equal: this makes merge sort stable
-// 			entries[insertLocation] = tempArray1[index1-low];
-// 			index1++;
-// 		} 
-// 		else 
-// 		{ //if tempArray2  has the smalller value
-// 			entries[insertLocation] = tempArray2[index2-(mid+1)];
-// 			index2++;
-// 		}
-// 		//insertLocation will never go out of bounds because the loop stops when all the values put back into entries from low to high 
-// 		insertLocation++;
-// 	}
-	
-// 	//if tempArray1 still has more entries, put at the end of entries
-// 	while (index1 <= mid) 
-// 	{
-// 		entries[insertLocation] = tempArray1[index1-low];
-// 		index1++;
-// 		insertLocation++;
-// 	}
-
-// 	//if tempArray2 still has more entries, put at the end of entries
-// 	while (index2 <= high) 
-// 	{
-// 		entries[insertLocation] = tempArray2[index2-(mid+1)];
-// 		index2++;
-// 		insertLocation++;
-// 	}
-	
-// 	free(tempArray1);
-// 	free(tempArray2);
-	
-// 	return;
-// } 
-
-// int compareValue(struct entry *tempArray1, struct entry *tempArray2, enum type *columnTypes, int *compareIndexes, int numberOfSortBys) 
-// {
-// 	//the values could be string, integer, or decimal
-// 	int counter = 0;
-// 	union value *location1;
-// 	union value *location2;
-// 	enum type dataType;
-// 	int temp=0;
-
-// 	//printf("compareIndexes[0] = %d", compareIndexes[0]);
-// 	//printf("columnTypes[0] = %d", columnTypes[0]);
-
-// 	while (counter < numberOfSortBys)
-// 	{
-
-// 		//printf("Comparing Index %d\n", compareIndexes[counter]);
-
-// 		location1 = &(tempArray1->values[compareIndexes[counter]]);
-// 		location2 = &(tempArray2->values[compareIndexes[counter]]);
-// 		dataType = columnTypes[compareIndexes[counter]];
-// 		if (dataType == string) 
-// 		{
-// 			temp = strcmp(location1->stringVal,location2->stringVal);
-// 			if (temp < 0) 
-// 			{
-// 				return -1; //first value is smaller or equal
-// 			} 
-// 			else if (temp > 0) 
-// 			{
-// 				return 1; //first value is bigger
-// 			} 
-// 			else 
-// 			{
-// 				counter++;
-// 				continue;
-// 			}
-// 		} 
-// 		else if (dataType == integer) 
-// 		{
-// 			temp = (location1->intVal) - (location2->intVal);
-// 			if (temp < 0) 
-// 			{
-// 				return -1; //first value is smaller or equal
-// 			} 
-// 			else if (temp > 0) 
-// 			{
-// 				return 1; //first value is bigger
-// 			} 
-// 			else 
-// 			{
-// 				counter++;
-// 				continue;
-// 			}
-// 		} 
-// 		else if (dataType == decimal) 
-// 		{
-// 			temp = (location1->decimalVal) - (location2->decimalVal);
-// 			if (temp < 0) 
-// 			{
-// 				return -1; //first value is smaller or equal
-// 			} 
-// 			else if (temp > 0) 
-// 			{
-// 				return 1; //first value is bigger
-// 			} 
-// 			else 
-// 			{
-// 				counter++;
-// 				continue;
-// 			}
-// 		} 
-// 		else 
-// 		{
-// 			printf("Error: compareValue: %d\n", dataType);
-// 			exit(-1);
-// 		}
-// 	}
-// 	return -1; //Both values are exactly the same ==> first value is smaller!! since mergeSort is stable
-// }
 
 void printCSV(struct csv *csv, FILE *file) 
 {
@@ -896,7 +561,6 @@ void freeCSV(struct csv *csv)
 		free(csv->columnNames[i]);
 	}
 
-
 	//Free Column Names (Array of Dynamically Allocated Strings)
 	free(csv->columnNames);
 	//Free Each Individual CSV Entry (Array of Value Structs)
@@ -904,7 +568,6 @@ void freeCSV(struct csv *csv)
 	{
 		free(csv->entries[i]);
 	}
-
 
 	//Free CSV Entries (Array of Entry Pointers)
 	free(csv->entries);
@@ -975,8 +638,6 @@ int isCSV(char *fname)
 	}
 	return 0;
 }
-
-
 
 //CSV Must be freed by caller.
 struct csv *readDump(int sockfd) {
@@ -1054,7 +715,6 @@ struct csv *readDump(int sockfd) {
 				printf("Error Reading in a value.\n");
 				exit(0);
 			}
-
 		}
 	}
 
@@ -1154,9 +814,7 @@ void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *cs
 		printf("Writing column to sort by failed.\n");
 		exit(0);
 	}
-
 	if (type == sort) {
 		sendCSV(sockfd, csv);
 	}
-
 }
