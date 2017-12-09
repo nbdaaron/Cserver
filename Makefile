@@ -1,17 +1,21 @@
 all:
-	gcc Sorter.c -O3 -o sorter -lpthread
+	gcc sorter_server.c -O3 -o sorter_server -lpthread
+	gcc sorter_client.c -O3 -o sorter_client -lpthread
 
 clean:
-	rm sorter
+	rm sorter_server
+	rm sorter_client
 
 debug:
-	gcc Sorter.c -Wall -Werror -fsanitize=address -g -o sorter -lpthread
+	gcc sorter_server.c -Wall -Werror -fsanitize=address -g -o sorter_server -lpthread
+	gcc sorter_client.c -Wall -Werror -fsanitize=address -g -o sorter_client -lpthread
 
 gdbdebug:
-	gcc Sorter.c -Wall -fsanitize=address -g -o sorter -lpthread
+	gcc sorter_server.c -Wall -fsanitize=address -g -o sorter_server -lpthread
+	gcc sorter_client.c -Wall -fsanitize=address -g -o sorter_client -lpthread
 
-gdb:
-	gdb --args ./sorter -p 8000
+gdbs:
+	gdb --args ./sorter_server -p 3030
 
-run:
-	./sorter -p 8000
+runs:
+	./sorter_server -p 3030

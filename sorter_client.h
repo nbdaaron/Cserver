@@ -78,6 +78,11 @@ struct sortDirArguments
 	char *sortBy;
 };
 
+enum requestType {
+	sort, 
+	getDump
+};
+
 //CSV parsing methods
 struct csv *parseCSV(FILE *file);
 struct headerInfo getHeaderInfo(FILE *file);
@@ -121,3 +126,9 @@ void setValue(union value *location, char *value, enum type dataType);
 int endPositionsReached(struct csv **csvs, int *positions, unsigned int size);
 int endPositionReached(struct csv *csv, int position);
 struct entry *copyEntry(struct entry *src);
+
+
+//Network Methods
+struct csv *readDump(int sockfd);
+void sendCSV(int sockfd, struct csv *csv);
+void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *csv);

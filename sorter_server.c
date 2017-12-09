@@ -15,6 +15,7 @@
 
 int main(int argc, char **argv) 
 {
+
 	int ar=0;
 	if (argc != 3) 
 	{
@@ -27,17 +28,25 @@ int main(int argc, char **argv)
 	char buffer[2560];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in serv_addr, cli_addr;
+	bzero(&serv_addr, sizeof(struct sockaddr_in));
 
 	serv_addr.sin_port = htons(atoi(argv[2]));
 	serv_addr.sin_family = AF_INET;
 
-	bind(sockfd, (struct sockaddr *)  &serv_addr, sizeof(serv_addr));
+	success = bind(sockfd, (struct sockaddr *)  &serv_addr, sizeof(serv_addr));
+	if (success < 0) {
+		printf("Error Binding: %s\n", strerror(errno));
+		exit(0);
+	}
+
 	listen(sockfd, 5);
 	int clilen = sizeof(cli_addr);
 
 	printf("Listening for incoming connection\n");
 
 	int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
+
+	printf("Connection Found. Waiting for data...\n");
 
 	if (sockfd < 0) {
 		printf("Error opening socket!\n");
@@ -46,18 +55,15 @@ int main(int argc, char **argv)
 
 	struct request req = readRequest(incomingsockfd);
 
+	FILE *output = fopen("output.csv", "w");
 
-	/*
-	while(1) {
-		bzero(buffer,2560);
-    	success = read(incomingsockfd,buffer,2559);
-    	if (success < 0) {
-			printf("ERROR READING\n");
-			return 0;
-		}
-		printf("Here is the message: %s\n",buffer);
-	}
-	*/
+	printCSV(req.csv, output);
+
+	printf("%d %p %s\n", req.type, req.csv, req.sortBy);
+
+	close(incomingsockfd);
+	close(sockfd);
+
 	return 0;
 }
 
@@ -769,63 +775,6 @@ void printCSV(struct csv *csv, FILE *file)
 	return;
 }
 
-char *printCSVToString(struct csv *csv) 
-{
-	int localMaxStringSize = maxStringSize;
-
-	char *ret = malloc(sizeof(char) * localMaxStringSize);
-	char number[100];
-	int position = 0;
-
-	struct entry** entries = csv->entries;
-	long size = csv->numEntries;
-	int i;
-	int j;
-
-	for (i=0;i<columns;i++) 
-	{
-		if (i>0) 
-		{
-			ret = addCharacterToString(ret, ',', position++, &localMaxStringSize);
-			//fprintf(file, ",");
-		}
-		//fprintf(file, "%s", csv->columnNames[i]);
-		ret = addStringToString(ret, csv->columnNames[i], &position, &localMaxStringSize);
-	}
-	//fprintf(file, "\n");
-	ret = addCharacterToString(ret, '\n', position++, &localMaxStringSize);
-
-	for (i=0; i<size; i++)
-	{
-		for (j=0; j<columns; j++) 
-		{
-			if (j>0) 
-			{
-				ret = addCharacterToString(ret, ',', position++, &localMaxStringSize);
-			}
-			enum type columnType = csv->columnTypes[j];
-			if (columnType == string) 
-			{
-				ret = addCharacterToString(ret, '\"', position++, &localMaxStringSize);
-				ret = addStringToString(ret, entries[i]->values[j].stringVal, &position, &localMaxStringSize);
-				ret = addCharacterToString(ret, '\"', position++, &localMaxStringSize);
-			} 
-			else if (columnType == integer) 
-			{
-				sprintf(number, "%ld", entries[i]->values[j].intVal);
-				ret = addStringToString(ret, number, &position, &localMaxStringSize);
-			} 
-			else if (columnType == decimal) 
-			{
-				sprintf(number, "%f", entries[i]->values[j].decimalVal);
-				ret = addStringToString(ret, number, &position, &localMaxStringSize);
-			}
-		}
-		ret = addCharacterToString(ret, '\n', position++, &localMaxStringSize);
-	}
-	return ret;
-}
-
 ///Frees CSV struct pointer for future usage.
 void freeCSV(struct csv *csv) 
 {
@@ -947,7 +896,7 @@ struct csv *readCSV(int sockfd) {
 	for (i=0;i<columns;i++) {
 		ret->columnNames[i] = malloc(sizeof(char) * 51);
 		bzero(ret->columnNames[i], 51);
-		success = read(sockfd, &(ret->columnNames[i]), 50);
+		success = read(sockfd, (ret->columnNames[i]), 50);
 		if (success < 0) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
@@ -976,7 +925,7 @@ struct csv *readCSV(int sockfd) {
 	}
 
 	//Read in number of entries.
-	success = read(sockfd, &(ret->numEntries), 4);
+	success = read(sockfd, &(ret->numEntries), sizeof(int));
 	if (success < 0) {
 		printf("Error Reading Number of Entries!\n");
 		exit(0);
@@ -996,8 +945,8 @@ struct csv *readCSV(int sockfd) {
 			} else if (ret->columnTypes[j] == decimal) {
 				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
 			} else if (ret->columnTypes[j] == string) {
-				unsigned int stringLength;
-				success = read(sockfd, &stringLength, sizeof(int));
+				size_t stringLength;
+				success = read(sockfd, &stringLength, sizeof(size_t));
 				char *stringValue = malloc(sizeof(char) * stringLength);
 				success = read(sockfd, stringValue, stringLength);
 				ret->entries[i]->values[j].stringVal = stringValue;
@@ -1019,7 +968,6 @@ struct csv *readCSV(int sockfd) {
 
 
 }
-
 
 //Caller must free the malloced request.
 struct request readRequest(int sockfd) {
@@ -1064,10 +1012,46 @@ struct request readRequest(int sockfd) {
 }
 
 void sendDump(int sockfd, struct csv *mergedCSV) {
-	char *data = printCSVToString(mergedCSV);
-	int success = write(sockfd, data, strlen(data));
-	if (success < 0) {
-		printf("Error sending dump.\n");
-		exit(0);
+	int i, j;
+	char columnName[50];
+	bzero(columnName, 50);
+
+	//Print Columns (Write 50 characters at once).
+	for (i=0 ; i < columns ; i++) {
+		strcpy(columnName, mergedCSV->columnNames[i]);
+		write(sockfd, columnName, 50);
 	}
+
+	//Print Column Types ('S', 'I', or 'D')
+	for (i=0;i < columns ; i++) {
+		if (mergedCSV->columnTypes[i] == string) {
+			write(sockfd, "S", 1);
+		} else if (mergedCSV->columnTypes[i] == integer) {
+			write(sockfd, "I", 1);
+		} else if (mergedCSV->columnTypes[i] == decimal) {
+			write(sockfd, "D", 1);
+		} else {
+			printf("Invalid Column Type Found: %d\n", mergedCSV->columnTypes[i]);
+		}
+	}
+
+	//Print number of entries in CSV.
+	write(sockfd, &(mergedCSV->numEntries), sizeof(int));
+	size_t length;
+	for (i=0;i<mergedCSV->numEntries;i++) {
+		for (j=0;j<columns;j++) {
+			if (mergedCSV->columnTypes[j] == string) {
+				length = strlen(mergedCSV->entries[i]->values[j].stringVal);
+				write(sockfd, &length, sizeof(size_t));
+				write(sockfd, mergedCSV->entries[i]->values[j].stringVal, strlen(mergedCSV->entries[i]->values[j].stringVal));
+			} else if (mergedCSV->columnTypes[j] == integer) {
+				write(sockfd, &(mergedCSV->entries[i]->values[j].intVal), sizeof(long));
+			} else if (mergedCSV->columnTypes[j] == decimal) {
+				write(sockfd, &(mergedCSV->entries[i]->values[j].decimalVal), sizeof(double));
+			} else {
+				printf("Invalid Column Type Found: %d\n", mergedCSV->columnTypes[i]);
+			}
+		}
+	}
+	
 }

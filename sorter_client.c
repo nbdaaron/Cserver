@@ -15,6 +15,54 @@
 
 int main(int argc, char **argv) 
 {
+
+	int success;
+
+	if (argc < 3) {
+		printf("NEED HOSTNAME AND PORT\n");
+		exit(0);
+	}
+
+	struct addrinfo *addresses;
+
+	struct addrinfo hints;
+	bzero(&hints, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+
+	//Set up local socket
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sockfd < 0) {
+		printf("Error creating socket!\n");
+		exit(0);
+	}
+
+	//Set up server address info.
+	success = getaddrinfo(argv[1], argv[2], &hints, &addresses);
+
+	if (success < 0) {
+		printf("Error getting address info!\n");
+		exit(0);
+	}
+
+	//Attempt to connect local socket to server.
+	success = connect(sockfd, (struct sockaddr *)addresses[0].ai_addr, sizeof(struct sockaddr));
+
+	if (success < 0) {
+		printf("Error connecting to server!\n");
+		exit(0);
+	}
+
+	FILE *file = fopen("movie_metadata.csv", "r");
+	struct csv *csv = parseCSV(file);
+
+	sendRequest(sockfd, sort, "color", csv);
+
+	printf("Sent Request to Server.\n");
+
+	close(sockfd);
+
 	return 0;
 }
 
@@ -817,4 +865,189 @@ int isCSV(char *fname)
 		return 1;
 	}
 	return 0;
+}
+
+
+
+//CSV Must be freed by caller.
+struct csv *readDump(int sockfd) {
+
+	struct csv *ret = malloc(sizeof(struct csv));
+	ret->columnNames = malloc(sizeof(char *) * columns);
+	ret->columnTypes = malloc(sizeof(enum type) * columns);
+
+	int success, i, j;
+
+	//Read in column names.
+	for (i=0;i<columns;i++) {
+		ret->columnNames[i] = malloc(sizeof(char) * 51);
+		bzero(ret->columnNames[i], 51);
+		success = read(sockfd, &(ret->columnNames[i]), 50);
+		if (success < 0) {
+			printf("Error Reading Column Name!\n");
+			exit(0);
+		}
+	}
+
+	//Read in column types.
+	for (i=0;i<columns;i++) {
+		char columnType[2];
+		bzero(columnType, 2);
+		success = read(sockfd, columnType, 1);
+		if (success < 0) {
+			printf("Error Reading Column Type!\n");
+			exit(0);
+		}
+		if (columnType[0] == 'S') {
+			ret->columnTypes[i] = string;
+		} else if (columnType[0] == 'I'){
+			ret->columnTypes[i] = integer;
+		} else if (columnType[0] == 'D') {
+			ret->columnTypes[i] = decimal;
+		} else {
+			printf("Invalid Column Type Found: %c\n", columnType[0]);
+			exit(0);
+		}
+	}
+
+	//Read in number of entries.
+	success = read(sockfd, &(ret->numEntries), sizeof(int));
+	if (success < 0) {
+		printf("Error Reading Number of Entries!\n");
+		exit(0);
+	}
+	
+	//Create that many entry pointers.
+	ret->entries = malloc(sizeof(struct entry *) * ret->numEntries);
+
+
+	//Read in all csv values.
+	for (i=0;i<ret->numEntries;i++) {
+		ret->entries[i] = malloc(sizeof(struct entry));
+		ret->entries[i]->values = malloc(sizeof(union value) * columns);
+		for (j=0;j<columns;j++) {
+			if (ret->columnTypes[j] == integer) {
+				success = read(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
+			} else if (ret->columnTypes[j] == decimal) {
+				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
+			} else if (ret->columnTypes[j] == string) {
+				size_t stringLength;
+				success = read(sockfd, &stringLength, sizeof(size_t));
+				char *stringValue = malloc(sizeof(char) * stringLength);
+				success = read(sockfd, stringValue, stringLength);
+				ret->entries[i]->values[j].stringVal = stringValue;
+			} else {
+				printf("Unknown data type found in column %d!\n", j);
+				exit(0);
+			}
+
+			if (success < 0) {
+				printf("Error Reading in a value.\n");
+				exit(0);
+			}
+
+		}
+	}
+
+	return ret;
+
+}
+
+void sendCSV(int sockfd, struct csv *csv) {
+	int i, j, success;
+	char columnName[50];
+	bzero(columnName, 50);
+
+	//Print Columns (Write 50 characters at once).
+	for (i=0 ; i < columns ; i++) {
+		strcpy(columnName, csv->columnNames[i]);
+		success = write(sockfd, columnName, 50);
+	}
+
+
+	if (success <= 0) {
+		printf("Writing column names failed.\n");
+		exit(0);
+	}
+
+	//Print Column Types ('S', 'I', or 'D')
+	for (i=0;i < columns ; i++) {
+		if (csv->columnTypes[i] == string) {
+			success = write(sockfd, "S", 1);
+		} else if (csv->columnTypes[i] == integer) {
+			success = write(sockfd, "I", 1);
+		} else if (csv->columnTypes[i] == decimal) {
+			success = write(sockfd, "D", 1);
+		} else {
+			printf("Invalid Column Type Found: %d\n", csv->columnTypes[i]);
+		}
+	}
+
+	if (success <= 0) {
+		printf("Writing column types failed.\n");
+		exit(0);
+	}
+
+	//Print number of entries in CSV.
+	write(sockfd, &(csv->numEntries), sizeof(int));
+	size_t length;
+	for (i=0;i<csv->numEntries;i++) {
+		for (j=0;j<columns;j++) {
+			if (csv->columnTypes[j] == string) {
+				length = strlen(csv->entries[i]->values[j].stringVal);
+				success = write(sockfd, &length, sizeof(size_t));
+				success = write(sockfd, csv->entries[i]->values[j].stringVal, strlen(csv->entries[i]->values[j].stringVal));
+			} else if (csv->columnTypes[j] == integer) {
+				success = write(sockfd, &(csv->entries[i]->values[j].intVal), sizeof(long));
+			} else if (csv->columnTypes[j] == decimal) {
+				success = write(sockfd, &(csv->entries[i]->values[j].decimalVal), sizeof(double));
+			} else {
+				printf("Invalid Column Type Found: %d\n", csv->columnTypes[i]);
+			}
+		}
+	}
+
+	if (success <= 0) {
+		printf("Writing CSV Entries failed.\n");
+		exit(0);
+	}
+	
+}
+
+//If requesting dump, csv should be NULL.
+void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *csv) {
+	int success;
+
+	//Send Request Type.
+	if (type == sort) {
+		success = write(sockfd, "S", 1);
+	} else if (type == getDump) {
+		printf("%d\n", errno);
+		success = write(sockfd, "D", 1);
+		printf("%d\n", errno);
+	} else {
+		printf("Invalid Request Type: %d\n", type);
+		exit(0);
+	}
+
+	if (success <= 0) {
+		printf("Writing request type failed.\n");
+		exit(0);
+	}
+
+	//Send Column to sort by.
+	char sortByScaledTo50[50];
+	bzero(sortByScaledTo50, 50);
+	strcpy(sortByScaledTo50, sortBy);
+	success = write(sockfd, sortByScaledTo50, 50);
+
+	if (success <= 0) {
+		printf("Writing column to sort by failed.\n");
+		exit(0);
+	}
+
+	if (type == sort) {
+		sendCSV(sockfd, csv);
+	}
+
 }

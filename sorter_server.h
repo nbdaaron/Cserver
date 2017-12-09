@@ -138,5 +138,6 @@ struct entry *copyEntry(struct entry *src);
 
 
 //Network Methods
+char *printCSVToString(struct csv *csv);
 struct request readRequest(int sockfd);
 void sendDump(int sockfd, struct csv *mergedCSV);
