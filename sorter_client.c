@@ -25,11 +25,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	char *column;
-	char *hostname;
-	char *portNumber;
-	char *directoryName;
-	char *outputDirectoryName;
+	char *column = NULL;
+	char *hostname = NULL;
+	char *portNumber = NULL;
+	char *directoryName = NULL;
+	char *outputDirectoryName = NULL;
 	
 	int i;
 	for (i=1;i<argc;i+=2)
