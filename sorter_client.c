@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 	if (argc<7) {
 		printf("Missing arguments\n");
 		printf("Usage: ./sorter_client -c <column> -h <hostname or ip address> -p <port number> [-d <dirname>] [-o <output dirname>]\n");
-		exit(1):
+		exit(1);
 	} else if (argc % 2 != 1) {
 		printf("Usage: ./sorter_client -c <column> -h <hostname or ip address> -p <port number> [-d <dirname>] [-o <output dirname>]\n");
 		exit(1);
@@ -31,7 +31,8 @@ int main(int argc, char **argv)
 	char *directoryName;
 	char *outputDirectoryName;
 	
-	for (i=1;i<argc;i+=2) 
+	int i;
+	for (i=1;i<argc;i+=2)
 	{
 		printf("Argc=%d is %s \n", i, argv[i]);
 		if (!strcmp(argv[i],"-c")) 
@@ -72,7 +73,7 @@ int main(int argc, char **argv)
 	parseAndSendDir(directoryName, column);
 	
 	int sockfd = createSocket(hostname, portNumber);
-	sendRequest(int sockfd, getDump, column, NULL)
+	sendRequest(int sockfd, getDump, column, NULL);
 	struct csv *readDump(int sockfd);
 	
 	// call dump here and output file to the specified output directory
@@ -200,6 +201,7 @@ void *threadSendFile(void *args)
 	free(arguments);
 	int retval = 1;
 	pthread_exit((void *) (intptr_t) retval);
+	sem_post(&openedFiles);
 	return NULL;
 }
 

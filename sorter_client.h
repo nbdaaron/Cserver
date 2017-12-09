@@ -19,8 +19,11 @@ unsigned int maxEntries = 32768;
 //Maximum allowed number of input files.
 unsigned int fileCap = 8192;
 
-unsigned int currentFile = 0;
+struct csv **files;
+sem_t openedFiles;
+const unsigned int maxOpenedFileLimit = 1000;
 
+unsigned int currentFile = 0;
 
 //unions and structs
 union value 
@@ -91,7 +94,7 @@ struct entryInfo getCSVEntries(FILE *file, enum type *columnTypes);
 enum type getTypeFromColumnName(char *name);
 
 // goes through, creates an individual socket and sends file to server, does not recieve anything
-int parseAndSendDir(char *inputDir, char *sortBy);
+int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy);
 
 int isCSV(char *fname);
 
