@@ -135,7 +135,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 				numChildThreads++;
 			}
 		} //directories
-		else if (pDirent->d_type == DT_DIR && (strcmp(pDirent->d_name, ".")) && (strcmp(pDirent->d_name, ".."))) 
+		else if (pDirent->d_type == DT_DIR && (strcmp(pDirent->d_name, ".")) && (strcmp(pDirent->d_name, "..")) && (strcmp(pDirent->d_name, ".git"))) 
 		{
 			// replace this with recursive code to avoid threading
 			//printf("DIRECTORY: %s in %s\n", pDirent->d_name, inputDir);
@@ -158,6 +158,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 	printf("%lu ", pthread_self());
 	for (i=0;i<numChildThreads;i++) 
 	{
+		printf("Join here %d\n", i);
 		pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
 		//printf("Join %d number=%lu\t with retval=%d\n", i, (unsigned long)listOfThreadIDs[i], (int)status);
 		totalNumThreads += status;
