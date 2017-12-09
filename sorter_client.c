@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 	
 	if (column == NULL || hostname == NULL || portNumber == NULL) {
 		printf("Missing required flags, (-c -h -p)\n");
-		exit(0);
+		exit(0	);
 	}
 	
 	printf("column=%s, hostname=%s, portNumber=%s, directoryName=%s, outputDirectoryName=%s\n", column, hostname, portNumber, directoryName, outputDirectoryName);
