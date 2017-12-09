@@ -179,7 +179,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 			
 		}
 	}
-	close(dir);
+	closedir(dir);
 	
 	int i;
 	int status = 0;
