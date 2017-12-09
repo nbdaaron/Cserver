@@ -15,61 +15,241 @@
 
 int main(int argc, char **argv) 
 {
+	printf("TODO: Include all semaphore lines from last project, BUT FOR NUMBER OF CSVS READIN AND PROCESSED, NOT SORTED\n");	
+	if (argc<7) {
+		printf("Missing arguments\n");
+		printf("Usage: ./sorter_client -c <column> -h <hostname or ip address> -p <port number> [-d <dirname>] [-o <output dirname>]\n");
+		exit(1):
+	} else if (argc % 2 != 1) {
+		printf("Usage: ./sorter_client -c <column> -h <hostname or ip address> -p <port number> [-d <dirname>] [-o <output dirname>]\n");
+		exit(1);
+	}
 	
-	// usage ./sorter_client 
+	char *column;
+	char *hostname;
+	char *portNumber;
+	char *directoryName;
+	char *outputDirectoryName;
 	
-	int success;
+	for (i=1;i<argc;i+=2) 
+	{
+		printf("Argc=%d is %s \n", i, argv[i]);
+		if (!strcmp(argv[i],"-c")) 
+		{
+			column = argv[i+1];
+		}
+		else if (!strcmp(argv[i],"-h")) 
+		{
+			hostname = argv[i+1];
+		}
+		else if (!strcmp(argv[i],"-p")) 
+		{
+			portNumber = argv[i+1];
+		}
+		else if (!strcmp(argv[i],"-d")) 
+		{
+			directoryName = argv[i+1];
+		}
+		else if (!strcmp(argv[i],"-o")) 
+		{
+			outputDirectoryName = argv[i+1];
+			DIR *dir = opendir(outputDirectoryName);
+			if (!dir && ENOENT == errno) 
+			{
+				printf("ERROR: Cannot open output directory: %s.\n", outputDirectoryName);
+				exit(0);
+			}
+		} 
+		else 
+		{
+			printf("Unknown Flag %s\n", argv[i]);
+			return 0;
+		}
+	}
+	sem_init(&openedFiles, 0, maxOpenedFileLimit);
+	
+	
+	parseAndSendDir(directoryName, column);
+	
+	int sockfd = createSocket(hostname, portNumber);
+	sendRequest(int sockfd, getDump, column, NULL)
+	struct csv *readDump(int sockfd);
+	
+	// call dump here and output file to the specified output directory
+	// already declared before in this context as dir
+	
+	return 0;
+}
 
-	if (argc != 3) {
-		printf("usage: ./sorter_client 171.0.8.17(IP address) 3030(port number)\n");
+
+int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
+{
+	struct dirent * pDirent;
+	DIR *dir = NULL;
+	
+	if (inputDir == NULL) 
+	{
+		inputDir = ".";
+	}
+	dir = opendir(inputDir);
+	
+	if (dir == NULL) 
+	{
+		printf("ERROR: Cannot open input directory: %s.\n", inputDir);
 		exit(0);
 	}
+	
+	int maxPossibleThreads = 5000;
+	unsigned long *listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
+	int numChildThreads = 0;
+	
+	int totalNumThreads = 1;
+	
+	int limitChildren = 0;
+	while (((pDirent = readdir(dir)) != NULL) && limitChildren < 300) 
+	{
+		//files
+		if (isCSV(pDirent->d_name) && pDirent->d_type == DT_REG) 
+		{
+			pthread_t tid;
+			struct sendFileArguments *sortFileParameters = (struct sendFileArguments *) malloc(sizeof(struct sendFileArguments));
+			sortFileParameters->host = host;
+			sortFileParameters->portNumber = portNumber;
+			sortFileParameters->inputDir = inputDir;
+			sortFileParameters->fileName = (char *) calloc(1, (int)strlen(pDirent->d_name)*sizeof(char)+2);
+			strcat(sortFileParameters->fileName, pDirent->d_name);
+			sortFileParameters->sortBy = sortBy;
+			
+			pthread_create(&tid, NULL, threadSendFile, (void *)sortFileParameters);
+			if (numChildThreads<maxPossibleThreads)
+			{
+				listOfThreadIDs[numChildThreads] = tid;
+				numChildThreads++;
+			}
+			else 
+			{
+				maxPossibleThreads = maxPossibleThreads*2;
+				unsigned long *tempPtr= (unsigned long *)realloc(listOfThreadIDs, maxPossibleThreads * sizeof(unsigned long));
+				listOfThreadIDs = tempPtr;
+				listOfThreadIDs[numChildThreads] = tid;
+				numChildThreads++;
+			}
+		} //directories
+		else if (pDirent->d_type == DT_DIR && (strcmp(pDirent->d_name, ".")) && (strcmp(pDirent->d_name, ".."))) 
+		{
+			// replace this with recursive code to avoid threading
+			//printf("DIRECTORY: %s in %s\n", pDirent->d_name, inputDir);
+			
+			char *subDir = (char *)calloc(1, (strlen(inputDir)+strlen(pDirent->d_name)+2));
+			strcat(subDir, inputDir);
+			strcat(subDir, "/");
+			strcat(subDir, pDirent->d_name);
+			
+			parseAndSendDir(char *host, char *portNumber, char *subDir, char *sortBy);
+			free(subDir);
+			
+		}
+	}
+	closedir(dir);
+	
+	int i;
+	int status = 0;
+	
+	printf("%lu ", pthread_self());
+	for (i=0;i<numChildThreads;i++) 
+	{
+		pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
+		//printf("Join %d number=%lu\t with retval=%d\n", i, (unsigned long)listOfThreadIDs[i], (int)status);
+		totalNumThreads += status;
+	}
+	free(listOfThreadIDs);
+	return totalNumThreads;
+}
 
+void *threadSendFile(void *args)
+{
+	sem_wait(&openedFiles);
+	struct sendFileArguments *arguments = (struct sendFileArguments *) args;
+	
+	int sockfd = createSocket(arguments->host, arguments->portNumber);
+	
+	FILE *in;
+	if (arguments->inputDir != NULL) 
+	{
+		char *inputLocation = calloc(1, (strlen(arguments->inputDir) + strlen(arguments->fileName) + 2) * sizeof(char)); //this line is breaking
+		strcat(inputLocation, arguments->inputDir);
+		strcat(inputLocation, "/");
+		strcat(inputLocation, arguments->fileName);
+		in = fopen(inputLocation, "r");
+		free(inputLocation);
+	} 
+	else 
+	{
+		in = fopen(fileName, "r");
+	}
+	struct csv *csv = parseCSV(in);
+	
+	// (int sockfd, enum requestType type, char *sortBy, struct csv *csv)
+	sendRequest(sockfd, sort, arguments->sortBy, csv);
+	
+	printf("Sent Request to Server.\n");
+	printf("Awknowledgement Received?\n");
+	
+	close(sockfd);
+	
+	free(arguments);
+	int retval = 1;
+	pthread_exit((void *) (intptr_t) retval);
+	return NULL;
+}
+
+int createSocket(char *hostname, char *portNumber) {
+	
+	int success;
+	
 	struct addrinfo *addresses;
-
+	
 	struct addrinfo hints;
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
-
+	
 	//Set up local socket // socket creation
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
+	
 	if (sockfd < 0) {
 		printf("Error creating socket!\n");
 		exit(0);
 	}
-
+	
 	//Set up server address info.
 	// convert domain name, hostname, and IP addresses into addresses
 	// argv[1] = hostname = "www.example.com", an ip ; argv[2] = service = port number, "echo"
-	success = getaddrinfo(argv[1], argv[2], &hints, &addresses);
-
+	success = getaddrinfo(hostname, portNumber, &hints, &addresses);
+	
 	if (success < 0) {
 		printf("Error getting address info!\n");
 		exit(0);
 	}
-
+	
 	//Attempt to connect local socket to server.
 	// socket file descriptor, sockaddr ai_addr (info), size of sockaddr 
 	success = connect(sockfd, (struct sockaddr *)addresses[0].ai_addr, sizeof(struct sockaddr));
-
+	
 	if (success < 0) {
 		printf("Error connecting to server!\n");
 		exit(0);
 	}
+	
+	/* use sendRequest to send a sort/dump request and you can use readDump to get the merged CSV file after your dump request.*/
+	return sockfd;
+} // close(sockfd);
 
-	FILE *file = fopen("movie_metadata.csv", "r");
-	struct csv *csv = parseCSV(file);
 
-	sendRequest(sockfd, sort, "color", csv);
 
-	printf("Sent Request to Server.\n");
 
-	close(sockfd);
 
-	return 0;
-}
+
 
 ///Parses CSV and returns a pointer to CSV.
 struct csv *parseCSV(FILE *file) 
@@ -291,130 +471,120 @@ enum type getTypeFromColumnName(char *name)
 	return error;
 }
 
-void *threadExecuteSortFile(void *args)
-{
-	//char *inputDir, char *outputDir, char *fileName, char *sortBy
-	struct sortFileArguments *arguments = (struct sortFileArguments *) args;
-	sortFile(arguments->inputDir, arguments->outputDir, arguments->fileName, arguments->sortBy);
-	free(arguments);
-	int retval = 1;
-	pthread_exit((void *) (intptr_t) retval);
-	return NULL;
-}
 
-int sortFile(char *inputDir, char *outputDir, char *fileName, char *sortBy)
-{
+// int sortFile(char *inputDir, char *outputDir, char *fileName, char *sortBy)
+// {
 
-	FILE *in;
-	if (inputDir != NULL) 
-	{
-		char *inputLocation = calloc(1, (strlen(inputDir) + strlen(fileName) + 2) * sizeof(char)); //this line is breaking
-		strcat(inputLocation, inputDir);
-		strcat(inputLocation, "/");
-		strcat(inputLocation, fileName);
-		in = fopen(inputLocation, "r");
-		free(inputLocation);
-	} 
-	else 
-	{
-		in = fopen(fileName, "r");
-	}
+// 	FILE *in;
+// 	if (inputDir != NULL) 
+// 	{
+// 		char *inputLocation = calloc(1, (strlen(inputDir) + strlen(fileName) + 2) * sizeof(char)); 
+// 		strcat(inputLocation, inputDir);
+// 		strcat(inputLocation, "/");
+// 		strcat(inputLocation, fileName);
+// 		in = fopen(inputLocation, "r");
+// 		free(inputLocation);
+// 	} 
+// 	else 
+// 	{
+// 		in = fopen(fileName, "r");
+// 	}
 	
-	// remove .csv from the name
-	char *fileNameWithoutCSV = (char *) malloc((strlen(fileName)-3)*sizeof(char));
-	memcpy(fileNameWithoutCSV, fileName, (strlen(fileName)-4));
-	fileNameWithoutCSV[(strlen(fileName)-4)] = '\0';
+// 	// remove .csv from the name
+// 	char *fileNameWithoutCSV = (char *) malloc((strlen(fileName)-3)*sizeof(char));
+// 	memcpy(fileNameWithoutCSV, fileName, (strlen(fileName)-4));
+// 	fileNameWithoutCSV[(strlen(fileName)-4)] = '\0';
 	
-	// outputFilename = filename-sorted-[sortby].csv
-	char* outputFilename = calloc(1, (strlen(fileNameWithoutCSV) + strlen("-sorted-") + strlen(sortBy) + strlen(".csv") + 1) * sizeof(char));
-	strcat(outputFilename, fileNameWithoutCSV);
-	strcat(outputFilename, "-sorted-");
-	strcat(outputFilename, sortBy);
-	strcat(outputFilename, ".csv");
+// 	// outputFilename = filename-sorted-[sortby].csv
+// 	char* outputFilename = calloc(1, (strlen(fileNameWithoutCSV) + strlen("-sorted-") + strlen(sortBy) + strlen(".csv") + 1) * sizeof(char));
+// 	strcat(outputFilename, fileNameWithoutCSV);
+// 	strcat(outputFilename, "-sorted-");
+// 	strcat(outputFilename, sortBy);
+// 	strcat(outputFilename, ".csv");
 
-	free(fileNameWithoutCSV);
+// 	free(fileNameWithoutCSV);
 
-	struct csv *csv = parseCSV(in);
+// 	struct csv *csv = parseCSV(in);
 	
-	//char *sortBy = argv[2];
-	//!!code changed to handle query that has mutliple sort by values, comma separated
-	//array of strings
-	char **columnNames = csv->columnNames;
+// 	//char *sortBy = argv[2];
+// 	//!!code changed to handle query that has mutliple sort by values, comma separated
+// 	//array of strings
+// 	char **columnNames = csv->columnNames;
 	
-	//find the indexes of the desired field to sort by; color = 0, director_name = 1 ...
-	int numberOfSortBys = 1;
-	int i; 
-	char *query = sortBy;
-	for (i=0; query[i]!='\0'; i++) 
-	{
-		if (query[i] == ',') 
-		{
-			numberOfSortBys += 1;
-		}
-	}
+// 	//find the indexes of the desired field to sort by; color = 0, director_name = 1 ...
+// 	int numberOfSortBys = 1;
+// 	int i; 
+// 	char *query = sortBy;
+// 	for (i=0; query[i]!='\0'; i++) 
+// 	{
+// 		if (query[i] == ',') 
+// 		{
+// 			numberOfSortBys += 1;
+// 		}
+// 	}
 	
-	//all the sortBy values separated
-	char **arrayOfSortBys = (char **)malloc(numberOfSortBys * sizeof(char *));
-	int counter = 0;
+// 	//all the sortBy values separated
+// 	char **arrayOfSortBys = (char **)malloc(numberOfSortBys * sizeof(char *));
+// 	int counter = 0;
 
 	
-	//parse out the different sortBy values
-	char *temp = query;
-	for (i=0; query[i]!='\0'; i++) 
-	{
-		if (query[i] == ',') 
-		{
-			char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
-			memcpy(sortVal, temp, (&(query[i])-temp));
-			sortVal[&(query[i])-temp] = '\0';
-			arrayOfSortBys[counter] = sortVal;
-			counter++;
-			temp=&(query[i])+1;
-		}
-	}
+// 	//parse out the different sortBy values
+// 	char *temp = query;
+// 	for (i=0; query[i]!='\0'; i++) 
+// 	{
+// 		if (query[i] == ',') 
+// 		{
+// 			char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
+// 			memcpy(sortVal, temp, (&(query[i])-temp));
+// 			sortVal[&(query[i])-temp] = '\0';
+// 			arrayOfSortBys[counter] = sortVal;
+// 			counter++;
+// 			temp=&(query[i])+1;
+// 		}
+// 	}
 	
-	//for the last value after the last comma
-	char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
-	memcpy(sortVal, temp, (&(query[i])-temp));
-	sortVal[&(query[i])-temp] = '\0';
-	arrayOfSortBys[counter] = sortVal;
-	//printf("sortVal: %s\n", sortVal);
-	int *indexesOfSortBys = (int *) malloc(numberOfSortBys * sizeof(int));
-	int j;
-	for (i=0; i<numberOfSortBys; i++) 
+// 	//for the last value after the last comma
+// 	char *sortVal = (char *) malloc((&(query[i])-temp+1) * sizeof(char));
+// 	memcpy(sortVal, temp, (&(query[i])-temp));
+// 	sortVal[&(query[i])-temp] = '\0';
+// 	arrayOfSortBys[counter] = sortVal;
+// 	//printf("sortVal: %s\n", sortVal);
+// 	int *indexesOfSortBys = (int *) malloc(numberOfSortBys * sizeof(int));
+// 	int j;
+// 	for (i=0; i<numberOfSortBys; i++) 
     
-	{
-		for (j=0; j < columns; j++) 
-		{
-			//printf("strcmp %s with %s\n", columnNames[i], arrayOfSortBys[counter]);
-			if (strcmp(columnNames[j], arrayOfSortBys[i])==0) 
-			{
-				indexesOfSortBys[i] = j;
-				break;
-			}
-		}
-		//check if header is found
-		if (j == columns) 
-		{
-			printf("Error, could not find query in column names\n");
-			exit(0);
-		}
-	}
+// 	{
+// 		for (j=0; j < columns; j++) 
+// 		{
+// 			//printf("strcmp %s with %s\n", columnNames[i], arrayOfSortBys[counter]);
+// 			if (strcmp(columnNames[j], arrayOfSortBys[i])==0) 
+// 			{
+// 				indexesOfSortBys[i] = j;
+// 				break;
+// 			}
+// 		}
+// 		//check if header is found
+// 		if (j == columns) 
+// 		{
+// 			printf("Error, could not find query in column names\n");
+// 			exit(0);
+// 		}
+// 	}
 	
-	//free the parsed character array of query
-	for (i=0; i<numberOfSortBys; i++) 
-	{
-		free(arrayOfSortBys[i]);
-	}
-	free(arrayOfSortBys);
-	//sorts csv by sortBy
+// 	//free the parsed character array of query
+// 	for (i=0; i<numberOfSortBys; i++) 
+// 	{
+// 		free(arrayOfSortBys[i]);
+// 	}
+// 	free(arrayOfSortBys);
+// 	//sorts csv by sortBy
 	
-	mergesortMovieList(csv, indexesOfSortBys, csv->columnTypes, numberOfSortBys);
+// 	mergesortMovieList(csv, indexesOfSortBys, csv->columnTypes, numberOfSortBys);
 	
-	free(indexesOfSortBys);
-	fclose(in);
-	return 1;
-}
+// 	free(indexesOfSortBys);
+// 	fclose(in);
+// 	return 1;
+// }
 
 struct csv *mergeCSVs(struct csv **csvs, unsigned int size, char *sortBy) 
 {	

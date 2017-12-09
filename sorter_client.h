@@ -63,10 +63,11 @@ struct entryInfo
 	int numEntries;
 };
 
-struct sortFileArguments 
+struct sendFileArguments 
 {
+	char *host;
+	char *portNumber;
 	char *inputDir;
-	char *outputDir;
 	char *fileName;
 	char *sortBy;
 };
@@ -89,14 +90,14 @@ struct headerInfo getHeaderInfo(FILE *file);
 struct entryInfo getCSVEntries(FILE *file, enum type *columnTypes);
 enum type getTypeFromColumnName(char *name);
 
-//included for parsing "recursively" through subdirectories
-int parseDir(char *inputDir, char *outputDir, char *sortBy);
+// goes through, creates an individual socket and sends file to server, does not recieve anything
+int parseAndSendDir(char *inputDir, char *sortBy);
 
 int isCSV(char *fname);
 
-void *threadExecuteSortFile(void *args);
+void *threadSendFile(void *args);
 
-int sortFile(char *inputDir, char *outputDir, char *fileName, char *sortBy);
+// int sortFile(char *inputDir, char *outputDir, char *fileName, char *sortBy);
 
 //Sorting Method: Merges CSV Files.
 struct csv *mergeCSVs(struct csv **csvs, unsigned int size, char *sortBy);
