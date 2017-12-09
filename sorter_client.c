@@ -82,6 +82,11 @@ int main(int argc, char **argv)
 		printf("Error receiving awknowlegment!\n");
 		exit(0);
 	}
+	// extra acknowledgment 
+	// else if (strcmp(awknowlegment, "dump!")!=0) {
+	// 	printf("Wrong awknowlegment message!\n");
+	// 	exit(0);
+	// }
 	
 	
 	struct csv *csv = readDump(sockfd);
@@ -135,6 +140,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 		//files
 		if (isCSV(pDirent->d_name) && pDirent->d_type == DT_REG) 
 		{
+			printf("%s\n", pDirent->d_name);
 			pthread_t tid;
 			struct sendFileArguments *sortFileParameters = (struct sendFileArguments *) malloc(sizeof(struct sendFileArguments));
 			sortFileParameters->host = host;
