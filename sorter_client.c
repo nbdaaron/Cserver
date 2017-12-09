@@ -228,13 +228,14 @@ void *threadSendFile(void *args)
 	if (success < 0) {
 		printf("Error receiving awknowlegment!\n");
 		exit(0);
-	} else if (strcmp(awknowlegment, "sorted!")!=0) {
-		printf("Wrong awknowlegment message!\n");
-		exit(0);
-	}
+	} 
+	// temporary
+	// else if (strcmp(awknowlegment, "sorted!")!=0) {
+	// 	printf("Wrong awknowlegment message for sorted\n");
+	// 	exit(0);
+	// }
 	
 	printf("Sent Request to Server.\n");
-	printf("Awknowledgement Received?\n");
 	
 	close(sockfd);
 	
