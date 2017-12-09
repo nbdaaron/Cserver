@@ -81,9 +81,6 @@ int main(int argc, char **argv)
 	if (success < 0) {
 		printf("Error receiving awknowlegment!\n");
 		exit(0);
-	} else if (strcmp(awknowlegment, "dump!")!=0) {
-		printf("Wrong awknowlegment message!\n");
-		exit(0);
 	}
 	
 	
@@ -176,12 +173,12 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 			
 		}
 	}
-	closedir(dir);
+	close(dir);
 	
 	int i;
 	int status = 0;
 	
-	printf("I'm a thread=%lu\n ", pthread_self());
+	// printf("I'm a thread=%lu\n ", pthread_self());
 	for (i=0;i<numChildThreads;i++) 
 	{
 		printf("Join here %d\n", i);
