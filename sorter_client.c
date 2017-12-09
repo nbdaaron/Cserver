@@ -66,12 +66,20 @@ int main(int argc, char **argv)
 			return 0;
 		}
 	}
+	
+	if (column == NULL || hostname == NULL || portNumber == NULL) {
+		printf("Missing required flags, (-c -h -p)\n");
+		exit(0);
+	}
+	
 	printf("column=%s, hostname=%s, portNumber=%s, directoryName=%s, outputDirectoryName=%s\n", column, hostname, portNumber, directoryName, outputDirectoryName);
 	
 	sem_init(&openedFiles, 0, maxOpenedFileLimit);
 	
+	// send all files to be sorted
 	parseAndSendDir(hostname, portNumber, directoryName, column);
 	
+	// get dump
 	int sockfd = createSocket(hostname, portNumber);
 	sendRequest(sockfd, getDump, column, NULL);
 	
@@ -228,12 +236,10 @@ void *threadSendFile(void *args)
 	if (success < 0) {
 		printf("Error receiving awknowlegment!\n");
 		exit(0);
-	} 
-	// temporary
-	// else if (strcmp(awknowlegment, "sorted!")!=0) {
-	// 	printf("Wrong awknowlegment message for sorted\n");
-	// 	exit(0);
-	// }
+	} else if (strcmp(awknowlegment, "sorted!")!=0) {
+		printf("Wrong awknowlegment message for sorted\n");
+		exit(0);
+	}
 	
 	printf("Sent Request to Server.\n");
 	
