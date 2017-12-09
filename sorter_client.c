@@ -106,8 +106,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 	
 	int totalNumThreads = 1;
 	
-	int limitChildren = 0;
-	while (((pDirent = readdir(dir)) != NULL) && limitChildren < 300) 
+	while (((pDirent = readdir(dir)) != NULL)) 
 	{
 		//files
 		if (isCSV(pDirent->d_name) && pDirent->d_type == DT_REG) 
