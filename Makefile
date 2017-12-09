@@ -19,3 +19,6 @@ gdbs:
 
 runs:
 	./sorter_server -p 3030
+
+runc:
+	./sorter_client -c "director_name" -h 128.6.13.173 -p 3030

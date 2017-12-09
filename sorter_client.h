@@ -100,22 +100,20 @@ int isCSV(char *fname);
 
 void *threadSendFile(void *args);
 
-// int sortFile(char *inputDir, char *outputDir, char *fileName, char *sortBy);
-
 //Sorting Method: Merges CSV Files.
-struct csv *mergeCSVs(struct csv **csvs, unsigned int size, char *sortBy);
+// struct csv *mergeCSVs(struct csv **csvs, unsigned int size, char *sortBy);
 
-//Sorting method: setup variables
-void mergesortMovieList(struct csv *csv, int *indexesOfSortBys, enum type *columnTypes, int numberOfSortBys);
+// //Sorting method: setup variables
+// void mergesortMovieList(struct csv *csv, int *indexesOfSortBys, enum type *columnTypes, int numberOfSortBys);
 
-//Sorting method: recursive call, splits up array
-void mergeSort(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
+// //Sorting method: recursive call, splits up array
+// void mergeSort(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
 
-//Sorting method: regrouping
-void mergeParts(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
+// //Sorting method: regrouping
+// void mergeParts(long low, long high, struct entry** entries, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
 
-//Comparing Values in an entry
-int compareValue(struct entry *tempArray1, struct entry *tempArray2, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
+// //Comparing Values in an entry
+// int compareValue(struct entry *tempArray1, struct entry *tempArray2, enum type *columnTypes, int *compareIndexes, int numberOfSortBys);
 
 //Output methods
 void printCSV(struct csv *csv, FILE *file);
@@ -127,9 +125,9 @@ void freeCSV(struct csv *csv);
 char *addCharacterToString(char *string, char next, int position, int *localMaxStringSize);
 struct entry **addEntryToArray(struct entry **array, struct entry *entry, int position);
 void setValue(union value *location, char *value, enum type dataType);
-int endPositionsReached(struct csv **csvs, int *positions, unsigned int size);
-int endPositionReached(struct csv *csv, int position);
-struct entry *copyEntry(struct entry *src);
+// int endPositionsReached(struct csv **csvs, int *positions, unsigned int size);
+// int endPositionReached(struct csv *csv, int position);
+// struct entry *copyEntry(struct entry *src);
 
 
 //Network Methods
