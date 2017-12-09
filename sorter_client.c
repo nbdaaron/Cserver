@@ -882,7 +882,7 @@ struct csv *readDump(int sockfd) {
 	for (i=0;i<columns;i++) {
 		ret->columnNames[i] = malloc(sizeof(char) * 51);
 		bzero(ret->columnNames[i], 51);
-		success = read(sockfd, &(ret->columnNames[i]), 50);
+		success = read(sockfd, ret->columnNames[i], 50);
 		if (success < 0) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
