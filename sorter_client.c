@@ -89,7 +89,7 @@ int main(int argc, char **argv)
 	}
 	
 	
-	struct csv *readDump(int sockfd);
+	struct csv *csv = readDump(sockfd);
 	
 	// determine output location
 	char *outputLocation;
