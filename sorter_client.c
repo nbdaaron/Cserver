@@ -699,6 +699,13 @@ struct csv *readDump(int sockfd) {
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength;
 				success = read(sockfd, &stringLength, sizeof(size_t));
+				//printf("Malloc %d bytes.\n", (int)(stringLength+1));
+
+				if (success < 0) {
+					printf("Error Reading in String Length value: %s\n", strerror(errno));
+					exit(0);
+				}
+
 				char *stringValue = malloc(sizeof(char) * (stringLength + 1));
 				success = read(sockfd, stringValue, stringLength);
 				stringValue[stringLength] = '\0';
@@ -775,12 +782,13 @@ void sendCSV(int sockfd, struct csv *csv) {
 			} else {
 				printf("Invalid Column Type Found: %d\n", csv->columnTypes[i]);
 			}
-		}
-	}
 
-	if (success <= 0) {
-		printf("Writing CSV Entries failed.\n");
-		exit(0);
+			if (success <= 0 &&  (csv->columnTypes[j] != string || strlen(csv->entries[i]->values[j].stringVal) > 0)) {
+				printf("Writing CSV Entry Row %d Col %d failed: %s\n", i, j, strerror(errno));
+				exit(0);
+			}
+
+		}
 	}
 	
 }
@@ -793,9 +801,7 @@ void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *cs
 	if (type == sort) {
 		success = write(sockfd, "S", 1);
 	} else if (type == getDump) {
-		printf("%d\n", errno);
 		success = write(sockfd, "D", 1);
-		printf("%d\n", errno);
 	} else {
 		printf("Invalid Request Type: %d\n", type);
 		exit(0);
@@ -825,7 +831,7 @@ void readAcknowledgement(int sockfd) {
 	char acknowlegment[2];
 	int success = read(sockfd, acknowlegment, 1);
 	if (success < 0) {
-		printf("Error receiving awknowlegment!\n");
+		printf("Error receiving acknowlegment: %s\n", strerror(errno));
 		exit(0);
 	} else if (acknowlegment[0] != 'S') {
 		printf("Wrong acknowlegment message for sorted: %c\n", acknowlegment[0]);

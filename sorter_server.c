@@ -959,6 +959,13 @@ struct csv *readCSV(int sockfd) {
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength;
 				success = read(sockfd, &stringLength, sizeof(size_t));
+				//printf("Malloc %d bytes.\n", (int)stringLength+1);
+
+				if (success < 0) {
+					printf("Error Reading in String Length value: %s\n", strerror(errno));
+					exit(0);
+				}
+
 				char *stringValue = malloc(sizeof(char) * (stringLength+1));
 				success = read(sockfd, stringValue, stringLength);
 				stringValue[stringLength] = '\0';
@@ -996,8 +1003,10 @@ struct request readRequest(int sockfd) {
 		printf("Error Reading Request Type!\n");
 		exit(0);
 	} else if (type[0] == 'D') { //Request Dump.
+		printf("Got Dump Request.\n");
 		ret.type = getDump;
 	} else if (type[0] == 'S') { //Request Sort.
+		printf("Got Sort Request.\n");
 		ret.type = sort;
 	} else {
 		printf("Error: Invalid request type.\n");
@@ -1025,7 +1034,7 @@ struct request readRequest(int sockfd) {
 }
 
 void sendDump(int sockfd, struct csv *mergedCSV) {
-	int i, j;
+	int i, j, success;
 	char columnName[50];
 	bzero(columnName, 50);
 
@@ -1038,13 +1047,17 @@ void sendDump(int sockfd, struct csv *mergedCSV) {
 	//Print Column Types ('S', 'I', or 'D')
 	for (i=0;i < columns ; i++) {
 		if (mergedCSV->columnTypes[i] == string) {
-			write(sockfd, "S", 1);
+			success = write(sockfd, "S", 1);
 		} else if (mergedCSV->columnTypes[i] == integer) {
-			write(sockfd, "I", 1);
+			success = write(sockfd, "I", 1);
 		} else if (mergedCSV->columnTypes[i] == decimal) {
-			write(sockfd, "D", 1);
+			success = write(sockfd, "D", 1);
 		} else {
 			printf("Invalid Column Type Found: %d\n", mergedCSV->columnTypes[i]);
+		}
+		if (success <= 0) {
+			printf("Writing Column Name Failed: %s\n", strerror(errno));
+			exit(0);
 		}
 	}
 
@@ -1055,14 +1068,19 @@ void sendDump(int sockfd, struct csv *mergedCSV) {
 		for (j=0;j<columns;j++) {
 			if (mergedCSV->columnTypes[j] == string) {
 				length = strlen(mergedCSV->entries[i]->values[j].stringVal);
-				write(sockfd, &length, sizeof(size_t));
-				write(sockfd, mergedCSV->entries[i]->values[j].stringVal, strlen(mergedCSV->entries[i]->values[j].stringVal));
+				success = write(sockfd, &length, sizeof(size_t));
+				success = write(sockfd, mergedCSV->entries[i]->values[j].stringVal, strlen(mergedCSV->entries[i]->values[j].stringVal));
 			} else if (mergedCSV->columnTypes[j] == integer) {
-				write(sockfd, &(mergedCSV->entries[i]->values[j].intVal), sizeof(long));
+				success = write(sockfd, &(mergedCSV->entries[i]->values[j].intVal), sizeof(long));
 			} else if (mergedCSV->columnTypes[j] == decimal) {
-				write(sockfd, &(mergedCSV->entries[i]->values[j].decimalVal), sizeof(double));
+				success = write(sockfd, &(mergedCSV->entries[i]->values[j].decimalVal), sizeof(double));
 			} else {
-				printf("Invalid Column Type Found: %d\n", mergedCSV->columnTypes[i]);
+				printf("Invalid Column Name Found: %d\n", mergedCSV->columnTypes[i]);
+			}
+
+			if (success <= 0 &&  (mergedCSV->columnTypes[j] != string || strlen(mergedCSV->entries[i]->values[j].stringVal) > 0)) {
+				printf("Writing CSV Entry Row %d Col %d failed: %s\n", i, j, strerror(errno));
+				exit(0);
 			}
 		}
 	}
