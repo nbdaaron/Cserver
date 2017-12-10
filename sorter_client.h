@@ -108,3 +108,5 @@ void setValue(union value *location, char *value, enum type dataType);
 struct csv *readDump(int sockfd);
 void sendCSV(int sockfd, struct csv *csv);
 void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *csv);
+void readAcknowledgement(int sockfd);
+int createSocket(char *hostname, char *portNumber);

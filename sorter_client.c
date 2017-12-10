@@ -33,7 +33,6 @@ int main(int argc, char **argv)
 	int i;
 	for (i=1;i<argc;i+=2)
 	{
-		printf("Argc=%d is %s \n", i, argv[i]);
 		if (!strcmp(argv[i],"-c")) 
 		{
 			column = argv[i+1];
@@ -82,20 +81,6 @@ int main(int argc, char **argv)
 	// get dump
 	int sockfd = createSocket(hostname, portNumber);
 	sendRequest(sockfd, getDump, column, NULL);
-	
-	// get awknowlegment
-	char awknowlegment[10];
-	int success = read(sockfd, awknowlegment, 10);
-	if (success < 0) {
-		printf("Error receiving awknowlegment!\n");
-		exit(0);
-	}
-	// extra acknowledgment 
-	// else if (strcmp(awknowlegment, "dump!")!=0) {
-	// 	printf("Wrong awknowlegment message!\n");
-	// 	exit(0);
-	// }
-	
 	
 	struct csv *csv = readDump(sockfd);
 	
@@ -230,16 +215,9 @@ void *threadSendFile(void *args)
 	
 	// (int sockfd, enum requestType type, char *sortBy, struct csv *csv)
 	sendRequest(sockfd, sort, arguments->sortBy, csv);
-	// read from sockfd to make sure the server awknowledges my request
-	char awknowlegment[10];
-	int success = read(sockfd, awknowlegment, 10);
-	if (success < 0) {
-		printf("Error receiving awknowlegment!\n");
-		exit(0);
-	} else if (strcmp(awknowlegment, "sorted!")!=0) {
-		printf("Wrong awknowlegment message for sorted\n");
-		exit(0);
-	}
+	// read from sockfd to make sure the server acknowledges my request
+	printf("Waiting for Acknowldgement.\n");
+	readAcknowledgement(sockfd);
 	
 	printf("Sent Request to Server.\n");
 	
@@ -574,7 +552,7 @@ void freeCSV(struct csv *csv)
 	//Free Column Names (Array of Dynamically Allocated Strings)
 	free(csv->columnNames);
 	//Free Each Individual CSV Entry (Array of Value Structs)
-	for (i=0;i<maxEntries;i++) 
+	for (i=0;i<csv->numEntries;i++) 
 	{
 		free(csv->entries[i]);
 	}
@@ -658,11 +636,14 @@ struct csv *readDump(int sockfd) {
 
 	int success, i, j;
 
+	//printf("Reading Dump Result!!!\n");
+
 	//Read in column names.
 	for (i=0;i<columns;i++) {
 		ret->columnNames[i] = malloc(sizeof(char) * 51);
 		bzero(ret->columnNames[i], 51);
 		success = read(sockfd, ret->columnNames[i], 50);
+		//printf("Column Name %d: %s\n", i, ret->columnNames[i]);
 		if (success < 0) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
@@ -678,6 +659,7 @@ struct csv *readDump(int sockfd) {
 			printf("Error Reading Column Type!\n");
 			exit(0);
 		}
+		//printf("Column Type %d: %c\n", i, columnType[0]);
 		if (columnType[0] == 'S') {
 			ret->columnTypes[i] = string;
 		} else if (columnType[0] == 'I'){
@@ -699,30 +681,36 @@ struct csv *readDump(int sockfd) {
 	
 	//Create that many entry pointers.
 	ret->entries = malloc(sizeof(struct entry *) * ret->numEntries);
-
+	//printf("Entries: %d\n", ret->numEntries);
 
 	//Read in all csv values.
 	for (i=0;i<ret->numEntries;i++) {
+		//printf("ROW %d!\n", i);
 		ret->entries[i] = malloc(sizeof(struct entry));
 		ret->entries[i]->values = malloc(sizeof(union value) * columns);
 		for (j=0;j<columns;j++) {
+			//printf("COLUMN %d!\n", j);
 			if (ret->columnTypes[j] == integer) {
 				success = read(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
+				//printf("Entry: %d\n", ret->entries[i]->values[j].intVal);
 			} else if (ret->columnTypes[j] == decimal) {
 				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
+				//printf("Entry: %d\n", ret->entries[i]->values[j].decimalVal);
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength;
 				success = read(sockfd, &stringLength, sizeof(size_t));
-				char *stringValue = malloc(sizeof(char) * stringLength);
+				char *stringValue = malloc(sizeof(char) * (stringLength + 1));
 				success = read(sockfd, stringValue, stringLength);
+				stringValue[stringLength] = '\0';
 				ret->entries[i]->values[j].stringVal = stringValue;
+				//printf("Entry: %s\n", ret->entries[i]->values[j].stringVal);
 			} else {
 				printf("Unknown data type found in column %d!\n", j);
 				exit(0);
 			}
 
 			if (success < 0) {
-				printf("Error Reading in a value.\n");
+				printf("Error Reading in a value: %s\n", strerror(errno));
 				exit(0);
 			}
 		}
@@ -741,30 +729,34 @@ void sendCSV(int sockfd, struct csv *csv) {
 	for (i=0 ; i < columns ; i++) {
 		strcpy(columnName, csv->columnNames[i]);
 		success = write(sockfd, columnName, 50);
-	}
+		//printf("Writing Column Name: %s\n", columnName);
 
 
-	if (success <= 0) {
-		printf("Writing column names failed.\n");
-		exit(0);
+		if (success <= 0) {
+			printf("Writing column names failed.\n");
+			exit(0);
+		}
 	}
 
 	//Print Column Types ('S', 'I', or 'D')
 	for (i=0;i < columns ; i++) {
 		if (csv->columnTypes[i] == string) {
 			success = write(sockfd, "S", 1);
+			//printf("Writing Column Type: S\n");
 		} else if (csv->columnTypes[i] == integer) {
 			success = write(sockfd, "I", 1);
+			//printf("Writing Column Type: I\n");
 		} else if (csv->columnTypes[i] == decimal) {
 			success = write(sockfd, "D", 1);
+			//printf("Writing Column Type: D\n");
 		} else {
 			printf("Invalid Column Type Found: %d\n", csv->columnTypes[i]);
 		}
-	}
 
-	if (success <= 0) {
-		printf("Writing column types failed.\n");
-		exit(0);
+		if (success <= 0) {
+			printf("Writing column types failed: %s\n", strerror(errno));
+			exit(0);
+		}
 	}
 
 	//Print number of entries in CSV.
@@ -826,5 +818,17 @@ void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *cs
 	}
 	if (type == sort) {
 		sendCSV(sockfd, csv);
+	}
+}
+
+void readAcknowledgement(int sockfd) {
+	char acknowlegment[2];
+	int success = read(sockfd, acknowlegment, 1);
+	if (success < 0) {
+		printf("Error receiving awknowlegment!\n");
+		exit(0);
+	} else if (acknowlegment[0] != 'S') {
+		printf("Wrong acknowlegment message for sorted: %c\n", acknowlegment[0]);
+		exit(0);
 	}
 }

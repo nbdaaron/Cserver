@@ -16,7 +16,6 @@
 int main(int argc, char **argv) 
 {
 
-	int ar=0;
 	if (argc != 3) 
 	{
 		printf("Usage: ./program -p <port>\n");
@@ -25,7 +24,6 @@ int main(int argc, char **argv)
 
 	//int port = atoi(argv[2]);
 	int success;
-	char buffer[2560];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in serv_addr, cli_addr;
 	bzero(&serv_addr, sizeof(struct sockaddr_in));
@@ -43,26 +41,38 @@ int main(int argc, char **argv)
 	int clilen = sizeof(cli_addr);
 
 	printf("Listening for incoming connection\n");
+	struct csv *latestCSV;
+	while(1) {
 
-	int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
+		int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
 
-	printf("Connection Found. Waiting for data...\n");
+		printf("Connection Found. Waiting for data...\n");
 
-	if (sockfd < 0) {
-		printf("Error opening socket!\n");
-		return 0;
+		if (sockfd < 0) {
+			printf("Error opening socket!\n");
+			return 0;
+		}
+
+		struct request req = readRequest(incomingsockfd);
+
+		printf("%d %p %s\n", req.type, req.csv, req.sortBy);
+
+
+		if (req.type == sort) {
+			acknowlegeSortRequest(incomingsockfd);
+			latestCSV = req.csv;
+			printf("Acknowleged Sort Request.\n");
+		} else if (req.type == getDump) {
+			printf("%s\n", latestCSV->entries[0]->values[0].stringVal);
+			sendDump(incomingsockfd, latestCSV);
+			printf("Sent Dump.\n");
+		}
+
+		close(incomingsockfd);
 	}
-
-	struct request req = readRequest(incomingsockfd);
-
-	FILE *output = fopen("output.csv", "w");
-
-	printCSV(req.csv, output);
-
-	printf("%d %p %s\n", req.type, req.csv, req.sortBy);
-
-	close(incomingsockfd);
 	close(sockfd);
+
+	printf("Closed Sockets.\n");
 
 	return 0;
 }
@@ -792,7 +802,7 @@ void freeCSV(struct csv *csv)
 	//Free Column Names (Array of Dynamically Allocated Strings)
 	free(csv->columnNames);
 	//Free Each Individual CSV Entry (Array of Value Structs)
-	for (i=0;i<maxEntries;i++) 
+	for (i=0;i<csv->numEntries;i++) 
 	{
 		free(csv->entries[i]);
 	}
@@ -901,6 +911,7 @@ struct csv *readCSV(int sockfd) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
 		}
+		//printf("Column Name: %s\n", ret->columnNames[i]);
 	}
 
 	//Read in column types.
@@ -912,6 +923,7 @@ struct csv *readCSV(int sockfd) {
 			printf("Error Reading Column Type!\n");
 			exit(0);
 		}
+		//printf("Column Type: %c (%d)\n", columnType[0], (int)columnType[0]);
 		if (columnType[0] == 'S') {
 			ret->columnTypes[i] = string;
 		} else if (columnType[0] == 'I'){
@@ -947,8 +959,9 @@ struct csv *readCSV(int sockfd) {
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength;
 				success = read(sockfd, &stringLength, sizeof(size_t));
-				char *stringValue = malloc(sizeof(char) * stringLength);
+				char *stringValue = malloc(sizeof(char) * (stringLength+1));
 				success = read(sockfd, stringValue, stringLength);
+				stringValue[stringLength] = '\0';
 				ret->entries[i]->values[j].stringVal = stringValue;
 			} else {
 				printf("Unknown data type found in column %d!\n", j);
@@ -1005,7 +1018,7 @@ struct request readRequest(int sockfd) {
 
 	if (ret.type == sort) {
 		ret.csv = readCSV(sockfd);
-	}
+	} 
 
 	return ret;
 
@@ -1054,4 +1067,12 @@ void sendDump(int sockfd, struct csv *mergedCSV) {
 		}
 	}
 	
+}
+
+void acknowlegeSortRequest(int sockfd) {
+	int success = write(sockfd, "S", 1);
+	if (success < 0) {
+		printf("Error sending response awknowlegment!\n");
+		exit(0);
+	}
 }

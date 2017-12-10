@@ -141,3 +141,4 @@ struct entry *copyEntry(struct entry *src);
 char *printCSVToString(struct csv *csv);
 struct request readRequest(int sockfd);
 void sendDump(int sockfd, struct csv *mergedCSV);
+void acknowlegeSortRequest(int sockfd);
