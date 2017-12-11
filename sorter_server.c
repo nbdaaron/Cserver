@@ -13,6 +13,14 @@
 #include <netdb.h>
 #include "sorter_server.h"
 
+struct csv *csvs[50];
+char outputBuffer[1000] = "";
+int k = 0;
+int numCSVs = 0;
+int maxPossibleThreads = 5000;
+unsigned long *listOfThreadIDs;
+int numChildThreads = 0;
+
 int main(int argc, char **argv) 
 {
 
@@ -28,6 +36,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in serv_addr, cli_addr;
 	bzero(&serv_addr, sizeof(struct sockaddr_in));
 
+	serv_addr.sin_addr.s_addr = htons(INADDR_ANY);
 	serv_addr.sin_port = htons(atoi(argv[2]));
 	serv_addr.sin_family = AF_INET;
 
@@ -41,7 +50,13 @@ int main(int argc, char **argv)
 	int clilen = sizeof(cli_addr);
 
 	printf("Listening for incoming connection\n");
-	struct csv *latestCSV;
+	
+	//pthread_mutex_t total_mutex;
+	
+
+	//csvs = (struct csv **) malloc(sizeof(struct csv *) * maxPossibleThreads);
+	listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
+
 	while(1) {
 
 		int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
@@ -52,7 +67,16 @@ int main(int argc, char **argv)
 			printf("Error opening socket!\n");
 			return 0;
 		}
+		
+		//Adds client's IP Address to the current list.
+		strcat(outputBuffer, inet_ntoa(cli_addr.sin_addr));
+		strcat(outputBuffer, ",");
 
+		//Spawns a new thread for each client.
+		pthread_t tid;
+		pthread_create(&tid, NULL, conHand, &incomingsockfd);
+
+		/* Moved to connection handler.
 		struct request req = readRequest(incomingsockfd);
 
 		printf("%d %p %s\n", req.type, req.csv, req.sortBy);
@@ -67,14 +91,92 @@ int main(int argc, char **argv)
 			sendDump(incomingsockfd, latestCSV);
 			printf("Sent Dump.\n");
 		}
+		*/
 
-		close(incomingsockfd);
+		if (numChildThreads<maxPossibleThreads)
+		{
+			listOfThreadIDs[numChildThreads] = tid;
+			numChildThreads++;
+		} else {
+			maxPossibleThreads = maxPossibleThreads*2;
+			unsigned long *tempPtr= (unsigned long *)realloc(listOfThreadIDs, maxPossibleThreads * sizeof(unsigned long));
+			listOfThreadIDs = tempPtr;
+			listOfThreadIDs[numChildThreads] = tid;
+			numChildThreads++;
+		}
 	}
 	close(sockfd);
-
+	free(listOfThreadIDs);
 	printf("Closed Sockets.\n");
+	printf("Received connections from: %s\n", outputBuffer);
 
 	return 0;
+}
+
+///Handles incoming connections for a thread
+void *conHand(void *isfd) {
+	printf("Spawned successful thread!\n");
+	int clientisfd = *(int*) isfd;
+
+	struct request req = readRequest(clientisfd);
+
+	printf("%d %p %s\n", req.type, req.csv, req.sortBy);
+
+	struct csv *latestCSV;
+
+	if (req.type == sort) {
+		acknowlegeSortRequest(clientisfd);
+		latestCSV = req.csv;
+		char *sortBy = req.sortBy;
+		printf("Acknowleged Sort Request.\n");
+			
+		int *indexesOfSortBys = (int *) malloc(2 * sizeof(int));
+		int j;
+		
+		for (j=0; j < columns; j++) 
+		{
+			if (strcmp(csvs[0]->columnNames[j], sortBy)==0) 
+			{
+				indexesOfSortBys[0] = j;
+				break;
+			}
+		}
+
+		mergesortMovieList(latestCSV, indexesOfSortBys, latestCSV->columnTypes, 1);
+
+		csvs[k] = latestCSV;
+		k++;
+		numCSVs++;
+		
+	} else if (req.type == getDump) {
+		//printf("%s\n", latestCSV->entries[0]->values[0].stringVal);
+
+		int i;
+		int status = 0;
+		int totalNumThreads = 0;
+		//Call mergeCSVs
+		for (i=0;i<numChildThreads;i++) 
+		{
+			printf("Join here %d\n", i);
+			pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
+			totalNumThreads += status;
+		}
+		
+		struct csv **csvsTEMP = csvs;		
+
+		struct csv *total = mergeCSVs(csvsTEMP, numCSVs, req.sortBy);
+
+		sendDump(clientisfd, latestCSV);
+		printf("Sent Dump.\n");
+	}
+	
+
+
+	close(clientisfd);
+
+	int retval = 1;	
+	pthread_exit((void *) (intptr_t) retval);
+	return NULL;
 }
 
 ///Parses CSV and returns a pointer to CSV.
