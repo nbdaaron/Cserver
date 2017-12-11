@@ -644,7 +644,7 @@ struct csv *readDump(int sockfd) {
 	for (i=0;i<columns;i++) {
 
 		size_t stringLength = 0;
-		success = read(sockfd, &stringLength, sizeof(size_t));
+		success = forceRead(sockfd, &stringLength, sizeof(size_t));
 
 		if (success < 0) {
 			printf("Error Reading in String Length value: %s\n", strerror(errno));
@@ -652,7 +652,7 @@ struct csv *readDump(int sockfd) {
 		}
 
 		char *stringValue = malloc(sizeof(char) * (stringLength + 1));
-		success = read(sockfd, stringValue, stringLength);
+		success = forceRead(sockfd, stringValue, stringLength);
 		stringValue[stringLength] = '\0';
 		ret->columnNames[i] = stringValue;
 
@@ -666,7 +666,7 @@ struct csv *readDump(int sockfd) {
 	for (i=0;i<columns;i++) {
 		char columnType[2];
 		bzero(columnType, 2);
-		success = read(sockfd, columnType, 1);
+		success = forceRead(sockfd, columnType, 1);
 		if (success < 0) {
 			printf("Error Reading Column Type!\n");
 			exit(0);
@@ -685,7 +685,7 @@ struct csv *readDump(int sockfd) {
 	}
 
 	//Read in number of entries.
-	success = read(sockfd, &(ret->numEntries), sizeof(int));
+	success = forceRead(sockfd, &(ret->numEntries), sizeof(int));
 	if (success < 0) {
 		printf("Error Reading Number of Entries!\n");
 		exit(0);
@@ -703,14 +703,14 @@ struct csv *readDump(int sockfd) {
 		for (j=0;j<columns;j++) {
 			//printf("COLUMN %d!\n", j);
 			if (ret->columnTypes[j] == integer) {
-				success = read(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
+				success = forceRead(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
 				//printf("Entry: %d\n", ret->entries[i]->values[j].intVal);
 			} else if (ret->columnTypes[j] == decimal) {
-				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
+				success = forceRead(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
 				//printf("Entry: %d\n", ret->entries[i]->values[j].decimalVal);
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength = 0;
-				success = read(sockfd, &stringLength, sizeof(size_t));
+				success = forceRead(sockfd, &stringLength, sizeof(size_t));
 				//printf("%ld ", stringLength);
 				fflush(stdout);
 
@@ -720,7 +720,7 @@ struct csv *readDump(int sockfd) {
 				}
 
 				char *stringValue = malloc(sizeof(char) * (stringLength + 1));
-				success = read(sockfd, stringValue, stringLength);
+				success = forceRead(sockfd, stringValue, stringLength);
 				stringValue[stringLength] = '\0';
 				ret->entries[i]->values[j].stringVal = stringValue;
 				//printf("Entry: %s\n", ret->entries[i]->values[j].stringVal);
@@ -843,7 +843,7 @@ void sendRequest(int sockfd, enum requestType type, char *sortBy, struct csv *cs
 
 void readAcknowledgement(int sockfd) {
 	char acknowlegment[2];
-	int success = read(sockfd, acknowlegment, 1);
+	int success = forceRead(sockfd, acknowlegment, 1);
 	if (success < 0) {
 		printf("Error receiving acknowlegment: %s\n", strerror(errno));
 		exit(0);
@@ -851,4 +851,14 @@ void readAcknowledgement(int sockfd) {
 		printf("Wrong acknowlegment message for sorted: %c\n", acknowlegment[0]);
 		exit(0);
 	}
+}
+
+int forceRead(int sockfd, void *location, size_t size) {
+	size_t progress = 0;
+
+	while (progress < size) {
+		progress += read(sockfd, &(((char *) location)[progress]), size - progress);
+	}
+
+	return progress;
 }

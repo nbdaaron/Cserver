@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "sorter_server.h"
 
 struct csv *csvs[50];
@@ -122,11 +123,9 @@ void *conHand(void *isfd) {
 
 	printf("%d %p %s\n", req.type, req.csv, req.sortBy);
 
-	struct csv *latestCSV;
 
 	if (req.type == sort) {
 		acknowlegeSortRequest(clientisfd);
-		latestCSV = req.csv;
 		char *sortBy = req.sortBy;
 		printf("Acknowleged Sort Request.\n");
 			
@@ -142,9 +141,9 @@ void *conHand(void *isfd) {
 			}
 		}
 
-		mergesortMovieList(latestCSV, indexesOfSortBys, latestCSV->columnTypes, 1);
+		mergesortMovieList(req.csv, indexesOfSortBys, req.csv->columnTypes, 1);
 
-		csvs[k] = latestCSV;
+		csvs[k] = req.csv;
 		k++;
 		numCSVs++;
 		
@@ -166,7 +165,7 @@ void *conHand(void *isfd) {
 
 		struct csv *total = mergeCSVs(csvsTEMP, numCSVs, req.sortBy);
 
-		sendDump(clientisfd, latestCSV);
+		sendDump(clientisfd, total);
 		printf("Sent Dump.\n");
 	}
 	
@@ -1009,7 +1008,7 @@ struct csv *readCSV(int sockfd) {
 	//Read in column names.
 	for (i=0;i<columns;i++) {
 		size_t stringLength = 0;
-		success = read(sockfd, &stringLength, sizeof(size_t));
+		success = forceRead(sockfd, &stringLength, sizeof(size_t));
 
 		if (success < 0) {
 			printf("Error Reading in String Length value: %s\n", strerror(errno));
@@ -1017,7 +1016,7 @@ struct csv *readCSV(int sockfd) {
 		}
 
 		char *stringValue = malloc(sizeof(char) * (stringLength + 1));
-		success = read(sockfd, stringValue, stringLength);
+		success = forceRead(sockfd, stringValue, stringLength);
 		stringValue[stringLength] = '\0';
 		ret->columnNames[i] = stringValue;
 		
@@ -1031,7 +1030,7 @@ struct csv *readCSV(int sockfd) {
 	for (i=0;i<columns;i++) {
 		char columnType[2];
 		bzero(columnType, 2);
-		success = read(sockfd, columnType, 1);
+		success = forceRead(sockfd, columnType, 1);
 		if (success < 0) {
 			printf("Error Reading Column Type!\n");
 			exit(0);
@@ -1050,7 +1049,7 @@ struct csv *readCSV(int sockfd) {
 	}
 
 	//Read in number of entries.
-	success = read(sockfd, &(ret->numEntries), sizeof(int));
+	success = forceRead(sockfd, &(ret->numEntries), sizeof(int));
 	if (success < 0) {
 		printf("Error Reading Number of Entries!\n");
 		exit(0);
@@ -1066,12 +1065,12 @@ struct csv *readCSV(int sockfd) {
 		ret->entries[i]->values = malloc(sizeof(union value) * columns);
 		for (j=0;j<columns;j++) {
 			if (ret->columnTypes[j] == integer) {
-				success = read(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
+				success = forceRead(sockfd, &(ret->entries[i]->values[j].intVal), sizeof(long));
 			} else if (ret->columnTypes[j] == decimal) {
-				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
+				success = forceRead(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
 			} else if (ret->columnTypes[j] == string) {
 				size_t stringLength = 0;
-				success = read(sockfd, &stringLength, sizeof(size_t));
+				success = forceRead(sockfd, &stringLength, sizeof(size_t));
 				//printf("%ld ", stringLength);
 				fflush(stdout);
 
@@ -1081,7 +1080,7 @@ struct csv *readCSV(int sockfd) {
 				}
 
 				char *stringValue = malloc(sizeof(char) * (stringLength+1));
-				success = read(sockfd, stringValue, stringLength);
+				success = forceRead(sockfd, stringValue, stringLength);
 				stringValue[stringLength] = '\0';
 				ret->entries[i]->values[j].stringVal = stringValue;
 			} else {
@@ -1112,7 +1111,7 @@ struct request readRequest(int sockfd) {
 	//Get Request Type. Always one character.
 	char type[2];
 	bzero(type,2);
-	success = read(sockfd,type,1);
+	success = forceRead(sockfd,type,1);
 	if (success < 0) {
 		printf("Error Reading Request Type!\n");
 		exit(0);
@@ -1131,7 +1130,7 @@ struct request readRequest(int sockfd) {
 	//Get Column Name. Always 50 characters.
 	char *columnName = malloc(sizeof(char) * 51);
 	bzero(columnName, 51);
-	success = read(sockfd, columnName, 50);
+	success = forceRead(sockfd, columnName, 50);
 	if (success < 0) {
 		printf("Error Reading Column Name!\n");
 		exit(0);
@@ -1209,4 +1208,14 @@ void acknowlegeSortRequest(int sockfd) {
 		printf("Error sending response awknowlegment!\n");
 		exit(0);
 	}
+}
+
+int forceRead(int sockfd, void *location, size_t size) {
+	size_t progress = 0;
+
+	while (progress < size) {
+		progress += read(sockfd, &(((char *) location)[progress]), size - progress);
+	}
+
+	return progress;
 }

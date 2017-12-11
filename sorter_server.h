@@ -144,5 +144,4 @@ void sendDump(int sockfd, struct csv *mergedCSV);
 void acknowlegeSortRequest(int sockfd);
 void *conHand(void *isfd);
 
-
-int testRead(int sockfd, void *location, size_t size);
+int forceRead(int sockfd, void *location, size_t size);

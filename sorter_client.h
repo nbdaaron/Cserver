@@ -112,4 +112,4 @@ void readAcknowledgement(int sockfd);
 int createSocket(char *hostname, char *portNumber);
 
 
-int testRead(int sockfd, void *location, size_t size);
+int forceRead(int sockfd, void *location, size_t size);
