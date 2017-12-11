@@ -52,10 +52,6 @@ int main(int argc, char **argv)
 
 	printf("Listening for incoming connection\n");
 	
-	//pthread_mutex_t total_mutex;
-	
-
-	//csvs = (struct csv **) malloc(sizeof(struct csv *) * maxPossibleThreads);
 	listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
 
 	while(1) {
@@ -134,7 +130,7 @@ void *conHand(void *isfd) {
 		
 		for (j=0; j < columns; j++) 
 		{
-			if (strcmp(csvs[0]->columnNames[j], sortBy)==0) 
+			if (strcmp(req.csv->columnNames[j], sortBy)==0) 
 			{
 				indexesOfSortBys[0] = j;
 				break;
