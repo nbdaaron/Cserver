@@ -630,6 +630,8 @@ int isCSV(char *fname)
 //CSV Must be freed by caller.
 struct csv *readDump(int sockfd) {
 
+	usleep(10000);
+
 	struct csv *ret = malloc(sizeof(struct csv));
 	ret->columnNames = malloc(sizeof(char *) * columns);
 	ret->columnTypes = malloc(sizeof(enum type) * columns);
@@ -640,10 +642,20 @@ struct csv *readDump(int sockfd) {
 
 	//Read in column names.
 	for (i=0;i<columns;i++) {
-		ret->columnNames[i] = malloc(sizeof(char) * 51);
-		bzero(ret->columnNames[i], 51);
-		success = read(sockfd, ret->columnNames[i], 50);
-		//printf("Column Name %d: %s\n", i, ret->columnNames[i]);
+
+		size_t stringLength = 0;
+		success = read(sockfd, &stringLength, sizeof(size_t));
+
+		if (success < 0) {
+			printf("Error Reading in String Length value: %s\n", strerror(errno));
+			exit(0);
+		}
+
+		char *stringValue = malloc(sizeof(char) * (stringLength + 1));
+		success = read(sockfd, stringValue, stringLength);
+		stringValue[stringLength] = '\0';
+		ret->columnNames[i] = stringValue;
+
 		if (success < 0) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
@@ -697,12 +709,13 @@ struct csv *readDump(int sockfd) {
 				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
 				//printf("Entry: %d\n", ret->entries[i]->values[j].decimalVal);
 			} else if (ret->columnTypes[j] == string) {
-				size_t stringLength;
+				size_t stringLength = 0;
 				success = read(sockfd, &stringLength, sizeof(size_t));
-				//printf("Malloc %d bytes.\n", (int)(stringLength+1));
+				//printf("%ld ", stringLength);
+				fflush(stdout);
 
-				if (success < 0) {
-					printf("Error Reading in String Length value: %s\n", strerror(errno));
+				if (success < sizeof(size_t)) {
+					printf("Error (Ret %d): Reading in String Length value: %s\n", success, strerror(errno));
 					exit(0);
 				}
 
@@ -730,13 +743,14 @@ struct csv *readDump(int sockfd) {
 void sendCSV(int sockfd, struct csv *csv) {
 	int i, j, success;
 	char columnName[50];
+	size_t length;
 	bzero(columnName, 50);
 
 	//Print Columns (Write 50 characters at once).
 	for (i=0 ; i < columns ; i++) {
-		strcpy(columnName, csv->columnNames[i]);
-		success = write(sockfd, columnName, 50);
-		//printf("Writing Column Name: %s\n", columnName);
+		length = strlen(csv->columnNames[i]);
+		success = write(sockfd, &length, sizeof(size_t));
+		success = write(sockfd, csv->columnNames[i], length);
 
 
 		if (success <= 0) {
@@ -768,12 +782,12 @@ void sendCSV(int sockfd, struct csv *csv) {
 
 	//Print number of entries in CSV.
 	write(sockfd, &(csv->numEntries), sizeof(int));
-	size_t length;
 	for (i=0;i<csv->numEntries;i++) {
 		for (j=0;j<columns;j++) {
 			if (csv->columnTypes[j] == string) {
 				length = strlen(csv->entries[i]->values[j].stringVal);
 				success = write(sockfd, &length, sizeof(size_t));
+				//printf("%ld ", length);
 				success = write(sockfd, csv->entries[i]->values[j].stringVal, strlen(csv->entries[i]->values[j].stringVal));
 			} else if (csv->columnTypes[j] == integer) {
 				success = write(sockfd, &(csv->entries[i]->values[j].intVal), sizeof(long));

@@ -142,3 +142,10 @@ char *printCSVToString(struct csv *csv);
 struct request readRequest(int sockfd);
 void sendDump(int sockfd, struct csv *mergedCSV);
 void acknowlegeSortRequest(int sockfd);
+<<<<<<< HEAD
+void *conHand(void *isfd);
+=======
+
+
+int testRead(int sockfd, void *location, size_t size);
+>>>>>>> ea883af0cd22b6feea407c7290038fef7d73f29c

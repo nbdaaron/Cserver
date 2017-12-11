@@ -998,6 +998,8 @@ int isCSV(char *fname)
 //CSV Must be freed by caller.
 struct csv *readCSV(int sockfd) {
 
+	usleep(10000);
+
 	struct csv *ret = malloc(sizeof(struct csv));
 	ret->columnNames = malloc(sizeof(char *) * columns);
 	ret->columnTypes = malloc(sizeof(enum type) * columns);
@@ -1006,14 +1008,23 @@ struct csv *readCSV(int sockfd) {
 
 	//Read in column names.
 	for (i=0;i<columns;i++) {
-		ret->columnNames[i] = malloc(sizeof(char) * 51);
-		bzero(ret->columnNames[i], 51);
-		success = read(sockfd, (ret->columnNames[i]), 50);
+		size_t stringLength = 0;
+		success = read(sockfd, &stringLength, sizeof(size_t));
+
+		if (success < 0) {
+			printf("Error Reading in String Length value: %s\n", strerror(errno));
+			exit(0);
+		}
+
+		char *stringValue = malloc(sizeof(char) * (stringLength + 1));
+		success = read(sockfd, stringValue, stringLength);
+		stringValue[stringLength] = '\0';
+		ret->columnNames[i] = stringValue;
+		
 		if (success < 0) {
 			printf("Error Reading Column Name!\n");
 			exit(0);
 		}
-		//printf("Column Name: %s\n", ret->columnNames[i]);
 	}
 
 	//Read in column types.
@@ -1059,12 +1070,13 @@ struct csv *readCSV(int sockfd) {
 			} else if (ret->columnTypes[j] == decimal) {
 				success = read(sockfd, &(ret->entries[i]->values[j].decimalVal), sizeof(double));
 			} else if (ret->columnTypes[j] == string) {
-				size_t stringLength;
+				size_t stringLength = 0;
 				success = read(sockfd, &stringLength, sizeof(size_t));
-				//printf("Malloc %d bytes.\n", (int)stringLength+1);
+				//printf("%ld ", stringLength);
+				fflush(stdout);
 
-				if (success < 0) {
-					printf("Error Reading in String Length value: %s\n", strerror(errno));
+				if (success < sizeof(size_t)) {
+					printf("Error (Ret %d): Reading in String Length value: %s\n", success, strerror(errno));
 					exit(0);
 				}
 
@@ -1137,13 +1149,15 @@ struct request readRequest(int sockfd) {
 
 void sendDump(int sockfd, struct csv *mergedCSV) {
 	int i, j, success;
+	size_t length;
 	char columnName[50];
 	bzero(columnName, 50);
 
-	//Print Columns (Write 50 characters at once).
+	//Print Column Names.
 	for (i=0 ; i < columns ; i++) {
-		strcpy(columnName, mergedCSV->columnNames[i]);
-		write(sockfd, columnName, 50);
+		length = strlen(mergedCSV->columnNames[i]);
+		success = write(sockfd, &length, sizeof(size_t));
+		success = write(sockfd, mergedCSV->columnNames[i], length);
 	}
 
 	//Print Column Types ('S', 'I', or 'D')
@@ -1165,12 +1179,12 @@ void sendDump(int sockfd, struct csv *mergedCSV) {
 
 	//Print number of entries in CSV.
 	write(sockfd, &(mergedCSV->numEntries), sizeof(int));
-	size_t length;
 	for (i=0;i<mergedCSV->numEntries;i++) {
 		for (j=0;j<columns;j++) {
 			if (mergedCSV->columnTypes[j] == string) {
 				length = strlen(mergedCSV->entries[i]->values[j].stringVal);
 				success = write(sockfd, &length, sizeof(size_t));
+				//printf("%ld ", length);
 				success = write(sockfd, mergedCSV->entries[i]->values[j].stringVal, strlen(mergedCSV->entries[i]->values[j].stringVal));
 			} else if (mergedCSV->columnTypes[j] == integer) {
 				success = write(sockfd, &(mergedCSV->entries[i]->values[j].intVal), sizeof(long));

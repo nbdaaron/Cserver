@@ -17,8 +17,11 @@ gdbdebug:
 gdbs:
 	gdb --args ./sorter_server -p 3030
 
+gdbc:
+	gdb --args ./sorter_client -c director_name -h man.cs.rutgers.edu -p 3030 -d t -o output
+
 runs:
 	./sorter_server -p 3030
 
 runc:
-	./sorter_client -c "director_name" -h 128.6.13.173 -p 3030
+	./sorter_client -c "director_name" -h man.cs.rutgers.edu -p 3030 -d t -o output
