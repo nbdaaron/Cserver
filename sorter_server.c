@@ -15,7 +15,7 @@
 #include "sorter_server.h"
 
 struct csv *csvs[500];
-char outputBuffer[1000] = "";
+char outputBuffer[1000];
 int k = 0;
 int numCSVs = 0;
 int maxPossibleThreads = 5000;
@@ -54,6 +54,7 @@ int main(int argc, char **argv)
 	//printf("Listening for incoming connection\n");
 	
 	listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
+	outputBuffer[0] = '\0';
 
 	while(1) {
 
@@ -73,23 +74,6 @@ int main(int argc, char **argv)
 		//Spawns a new thread for each client.
 		pthread_t tid;
 		pthread_create(&tid, NULL, conHand, &incomingsockfd);
-
-		/* Moved to connection handler.
-		struct request req = readRequest(incomingsockfd);
-
-		printf("%d %p %s\n", req.type, req.csv, req.sortBy);
-
-
-		if (req.type == sort) {
-			acknowlegeSortRequest(incomingsockfd);
-			latestCSV = req.csv;
-			printf("Acknowleged Sort Request.\n");
-		} else if (req.type == getDump) {
-			printf("%s\n", latestCSV->entries[0]->values[0].stringVal);
-			sendDump(incomingsockfd, latestCSV);
-			printf("Sent Dump.\n");
-		}
-		*/
 
 		if (numChildThreads<maxPossibleThreads)
 		{
