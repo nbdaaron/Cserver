@@ -14,7 +14,7 @@
 #include <arpa/inet.h>
 #include "sorter_server.h"
 
-struct csv *csvs[50];
+struct csv *csvs[500];
 char outputBuffer[1000] = "";
 int k = 0;
 int numCSVs = 0;
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 	listen(sockfd, 5);
 	int clilen = sizeof(cli_addr);
 
-	printf("Listening for incoming connection\n");
+	//printf("Listening for incoming connection\n");
 	
 	listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
 
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 
 		int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
 
-		printf("Connection Found. Waiting for data...\n");
+		//printf("Connection Found. Waiting for data...\n");
 
 		if (sockfd < 0) {
 			printf("Error opening socket!\n");
@@ -105,26 +105,26 @@ int main(int argc, char **argv)
 	}
 	close(sockfd);
 	free(listOfThreadIDs);
-	printf("Closed Sockets.\n");
-	printf("Received connections from: %s\n", outputBuffer);
+	//printf("Closed Sockets.\n");
+	//printf("Received connections from: %s\n", outputBuffer);
 
 	return 0;
 }
 
 ///Handles incoming connections for a thread
 void *conHand(void *isfd) {
-	printf("Spawned successful thread!\n");
+	//printf("Spawned successful thread!\n");
 	int clientisfd = *(int*) isfd;
 
 	struct request req = readRequest(clientisfd);
 
-	printf("%d %p %s\n", req.type, req.csv, req.sortBy);
+	//printf("%d %p %s\n", req.type, req.csv, req.sortBy);
 
 
 	if (req.type == sort) {
 		acknowlegeSortRequest(clientisfd);
 		char *sortBy = req.sortBy;
-		printf("Acknowleged Sort Request.\n");
+		//printf("Acknowleged Sort Request.\n");
 			
 		int *indexesOfSortBys = (int *) malloc(2 * sizeof(int));
 		int j;
@@ -153,7 +153,7 @@ void *conHand(void *isfd) {
 		//Call mergeCSVs
 		for (i=lastDump;i<numChildThreads;i++) 
 		{
-			printf("Join here %d\n", i);
+			//printf("Join here %d\n", i);
 			pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
 			totalNumThreads += status;
 		}
@@ -165,7 +165,25 @@ void *conHand(void *isfd) {
 		struct csv *total = mergeCSVs(csvsTEMP, numCSVs, req.sortBy);
 
 		sendDump(clientisfd, total);
-		printf("Sent Dump.\n");
+		//printf("Sent Dump.\n");
+
+		//deletes duplicates
+		char* result = (char*) malloc(sizeof(char) * (strlen(outputBuffer) + 1));
+  		result[0] = '\0';
+
+  		char* elm = strtok(outputBuffer, ",");
+  		if (elm != NULL) {
+			strcpy(result, elm);
+		}
+
+ 		while((elm = strtok(NULL, ",")) != NULL) {
+  			if (strstr(result, elm) == NULL) {
+    				strcat(result, ",");
+    				strcat(result, elm);
+   			}
+  		}
+
+  		strcpy(outputBuffer, result);
 		printf("Received connections from: %s\n", outputBuffer);
 	}
 	
