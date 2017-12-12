@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 		exit(0	);
 	}
 	
-	printf("column=%s, hostname=%s, portNumber=%s, directoryName=%s, outputDirectoryName=%s\n", column, hostname, portNumber, directoryName, outputDirectoryName);
+	// printf("column=%s, hostname=%s, portNumber=%s, directoryName=%s, outputDirectoryName=%s\n", column, hostname, portNumber, directoryName, outputDirectoryName);
 	
 	sem_init(&openedFiles, 0, maxOpenedFileLimit);
 	
@@ -133,7 +133,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 		//files
 		if (isCSV(pDirent->d_name) && pDirent->d_type == DT_REG) 
 		{
-			printf("%s\n", pDirent->d_name);
+			// printf("%s\n", pDirent->d_name);
 			pthread_t tid;
 			struct sendFileArguments *sortFileParameters = (struct sendFileArguments *) malloc(sizeof(struct sendFileArguments));
 			sortFileParameters->host = host;
@@ -180,7 +180,7 @@ int parseAndSendDir(char *host, char *portNumber, char *inputDir, char *sortBy)
 	// printf("I'm a thread=%lu\n ", pthread_self());
 	for (i=0;i<numChildThreads;i++) 
 	{
-		printf("Join here %d\n", i);
+		// printf("Join here %d\n", i);
 		pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
 		//printf("Join %d number=%lu\t with retval=%d\n", i, (unsigned long)listOfThreadIDs[i], (int)status);
 		totalNumThreads += status;
@@ -216,10 +216,10 @@ void *threadSendFile(void *args)
 	// (int sockfd, enum requestType type, char *sortBy, struct csv *csv)
 	sendRequest(sockfd, sort, arguments->sortBy, csv);
 	// read from sockfd to make sure the server acknowledges my request
-	printf("Waiting for Acknowldgement.\n");
+	// printf("Waiting for Acknowldgement.\n");
 	readAcknowledgement(sockfd);
 	
-	printf("Sent Request to Server.\n");
+	// printf("Sent Request to Server.\n");
 	
 	close(sockfd);
 	
