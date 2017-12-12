@@ -21,6 +21,7 @@ int numCSVs = 0;
 int maxPossibleThreads = 5000;
 unsigned long *listOfThreadIDs;
 int numChildThreads = 0;
+int lastDump = 0;
 
 int main(int argc, char **argv) 
 {
@@ -150,19 +151,22 @@ void *conHand(void *isfd) {
 		int status = 0;
 		int totalNumThreads = 0;
 		//Call mergeCSVs
-		for (i=0;i<numChildThreads;i++) 
+		for (i=lastDump;i<numChildThreads;i++) 
 		{
 			printf("Join here %d\n", i);
 			pthread_join(listOfThreadIDs[i], (void *)&status);  //blocks execution until thread is joined
 			totalNumThreads += status;
 		}
-		
+		lastDump = numChildThreads;
+		lastDump++;
+
 		struct csv **csvsTEMP = csvs;		
 
 		struct csv *total = mergeCSVs(csvsTEMP, numCSVs, req.sortBy);
 
 		sendDump(clientisfd, total);
 		printf("Sent Dump.\n");
+		printf("Received connections from: %s\n", outputBuffer);
 	}
 	
 
