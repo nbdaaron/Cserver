@@ -59,7 +59,6 @@ int main(int argc, char **argv)
 	while(1) {
 
 		int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
-
 		//printf("Connection Found. Waiting for data...\n");
 
 		if (sockfd < 0) {
@@ -73,7 +72,7 @@ int main(int argc, char **argv)
 
 		//Spawns a new thread for each client.
 		pthread_t tid;
-		pthread_create(&tid, NULL, conHand, &incomingsockfd);
+		pthread_create(&tid, NULL, conHand, (void *) (intptr_t) incomingsockfd);
 
 		if (numChildThreads<maxPossibleThreads)
 		{
@@ -98,7 +97,7 @@ int main(int argc, char **argv)
 ///Handles incoming connections for a thread
 void *conHand(void *isfd) {
 	//printf("Spawned successful thread!\n");
-	int clientisfd = *(int*) isfd;
+	int clientisfd = (int) (intptr_t) isfd;
 
 	struct request req = readRequest(clientisfd);
 
@@ -171,7 +170,6 @@ void *conHand(void *isfd) {
 		printf("Received connections from: %s\n", outputBuffer);
 	}
 	
-
 
 	close(clientisfd);
 
@@ -1218,6 +1216,13 @@ int forceRead(int sockfd, void *location, size_t size) {
 	while (progress < size) {
 		progress += read(sockfd, &(((char *) location)[progress]), size - progress);
 	}
+
+	int i;
+	/*printf("READ SOCKFD %d SIZE %d: ", sockfd, size);
+	for (i=0;i<size;i++) {
+		printf("%02X", ((char *)location)[i]);
+	}
+	printf("\n");*/
 
 	return progress;
 }

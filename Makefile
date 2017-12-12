@@ -25,3 +25,15 @@ runs:
 
 runc:
 	./sorter_client -c "director_name" -h man.cs.rutgers.edu -p 3030 -d t -o output
+
+runs2:
+	./sorter_server -p 3031
+
+runc2:
+	./sorter_client -c "director_name" -h man.cs.rutgers.edu -p 3031 -d t -o output
+
+runs3:
+	./sorter_server -p 3032
+
+runc3:
+	./sorter_client -c "director_name" -h man.cs.rutgers.edu -p 3032 -d t -o output
