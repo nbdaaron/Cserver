@@ -1217,12 +1217,5 @@ int forceRead(int sockfd, void *location, size_t size) {
 		progress += read(sockfd, &(((char *) location)[progress]), size - progress);
 	}
 
-	int i;
-	/*printf("READ SOCKFD %d SIZE %d: ", sockfd, size);
-	for (i=0;i<size;i++) {
-		printf("%02X", ((char *)location)[i]);
-	}
-	printf("\n");*/
-
 	return progress;
 }
