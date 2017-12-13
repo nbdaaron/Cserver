@@ -56,6 +56,9 @@ int main(int argc, char **argv)
 	listOfThreadIDs = (unsigned long *) malloc(maxPossibleThreads*sizeof(unsigned long));
 	outputBuffer[0] = '\0';
 
+	printf("Received connections from: ");
+	fflush(stdout);
+
 	while(1) {
 
 		int incomingsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *) &clilen);
@@ -67,8 +70,9 @@ int main(int argc, char **argv)
 		}
 		
 		//Adds client's IP Address to the current list.
-		strcat(outputBuffer, inet_ntoa(cli_addr.sin_addr));
-		strcat(outputBuffer, ",");
+		printf(inet_ntoa(cli_addr.sin_addr));
+		printf(", ");
+		fflush(stdout);
 
 		//Spawns a new thread for each client.
 		pthread_t tid;
@@ -151,7 +155,7 @@ void *conHand(void *isfd) {
 		//printf("Sent Dump.\n");
 
 		//deletes duplicates
-		char* result = (char*) malloc(sizeof(char) * (strlen(outputBuffer) + 1));
+		/*char* result = (char*) malloc(sizeof(char) * (strlen(outputBuffer) + 1));
   		result[0] = '\0';
 
   		char* elm = strtok(outputBuffer, ",");
@@ -166,8 +170,8 @@ void *conHand(void *isfd) {
    			}
   		}
 
-  		strcpy(outputBuffer, result);
-		printf("Received connections from: %s\n", outputBuffer);
+  		strcpy(outputBuffer, result);*/
+
 	}
 	
 
@@ -1116,10 +1120,8 @@ struct request readRequest(int sockfd) {
 		printf("Error Reading Request Type!\n");
 		exit(0);
 	} else if (type[0] == 'D') { //Request Dump.
-		printf("Got Dump Request.\n");
 		ret.type = getDump;
 	} else if (type[0] == 'S') { //Request Sort.
-		printf("Got Sort Request.\n");
 		ret.type = sort;
 	} else {
 		printf("Error: Invalid request type.\n");
